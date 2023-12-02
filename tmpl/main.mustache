@@ -1,0 +1,253 @@
+
+#include "common.h"
+
+{{struct}}
+
+typedef struct {{name}}Object {
+    PyObject_HEAD
+    {{name}} raw;
+    uint32_t idx;
+} {{name}}Object;
+
+PyObject *{{name}}_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
+
+    uint64_t base_idx = 0;
+    Py_buffer buffer;
+    memset(&buffer, 0, sizeof(Py_buffer));
+
+    static char *pars_kwlist[] = {"raw", "idx", NULL};
+
+    if (!PyArg_ParseTupleAndKeywords(
+        args, kwds, "|y*I", pars_kwlist,
+        &buffer, &base_idx
+    )) {
+        PyBuffer_Release(&buffer);
+        return NULL;
+    }
+
+    {{name}}Object *self = ({{name}}Object *) type->tp_alloc(type, 0);
+    if (self == NULL) {
+        PyBuffer_Release(&buffer);
+        return NULL;
+    }
+
+    self->idx = base_idx;
+    
+    // if there was not any data to unpack we just
+    // return the default empty item
+    if (buffer.obj == NULL) {
+        memset(&self->raw, 0, sizeof({{name}}));
+        PyBuffer_Release(&buffer);
+        return (PyObject *)self;
+    }
+
+    // check if item data is valid or not
+    // if not return an error
+    if (buffer.len < (ssize_t)sizeof({{name}})) {
+        PyErr_SetString(PyExc_ValueError, "invalid raw length");
+        PyBuffer_Release(&buffer);
+        return NULL;
+    }
+
+    // check if we need to return a list of items 
+    // or just one item 
+    Py_ssize_t length = buffer.len / sizeof({{name}});
+    {{name}} *raw = buffer.buf;
+
+    memcpy(&self->raw, raw, sizeof({{name}}));
+
+    if (length > 1) {
+        PyObject *list = PyList_New(length);
+        if (list == NULL) {
+            PyBuffer_Release(&buffer);
+            return NULL;
+        }
+
+        type->tp_init((PyObject *)self, args, kwds);
+        PyList_SetItem(list, 0, (PyObject *)self);
+
+        for (Py_ssize_t i = 1; i < length; i++) {
+            self = ({{name}}Object *)type->tp_alloc(type, 0);
+            if (self == NULL) {
+                PyBuffer_Release(&buffer);
+                return NULL;
+            }
+
+            self->idx = base_idx + i;
+            memcpy(&self->raw, &raw[i], sizeof({{name}}));
+
+            type->tp_init((PyObject *)self, args, kwds);
+            PyList_SetItem(list, i, (PyObject *)self);
+        }
+
+        PyBuffer_Release(&buffer);
+        return list;
+    }
+    
+    PyBuffer_Release(&buffer);
+    return (PyObject *)self;
+}
+
+int {{name}}_init(
+    {{name}}Object *Py_UNUSED(self),
+    PyObject *Py_UNUSED(args),
+    PyObject *Py_UNUSED(kwds)
+) {
+    return 0;
+}
+
+
+{{#bytes}}
+PyObject *{{name}}_get_{{attr}}({{name}}Object *self, void *Py_UNUSED(C)) {
+    return PyBytes_FromStringAndSize(
+        (char *)self->raw.{{attr}}, sizeof(self->raw.{{attr}})
+    );
+}
+
+int {{name}}_set_{{attr}}({{name}}Object *self, PyObject *value, void *Py_UNUSED(C)) {
+    if (value == NULL) {
+        PyErr_SetString(
+            PyExc_TypeError,
+            "{{attr}} connot be deleted!"
+        );
+        return -1;
+    }
+
+    if (!PyBytes_Check(value)) {
+        PyErr_SetString(
+            PyExc_TypeError,
+            "invalid {{attr}} type. only bytes are valid"
+        );
+        return -1;
+    }
+
+    if (PyBytes_Size(value) != sizeof(self->raw.{{attr}})) {
+        PyErr_SetString(
+            PyExc_TypeError,
+            "invalid {{attr}} size"
+        );
+        return -1;
+    }
+
+    memcpy(
+        self->raw.{{attr}},
+        PyBytes_AsString(value),
+        sizeof(self->raw.{{attr}})
+    );
+
+    return 0;
+}
+{{/bytes}}
+
+
+{{#strs}}
+
+PyObject *{{name}}_get_{{attr}}({{name}}Object *self, void *Py_UNUSED(C)) {
+    Py_ssize_t size = sizeof(self->raw.{{attr}});
+
+    if (!self->raw.{{attr}}[sizeof(self->raw.{{attr}})-1]) {
+        size = strlen(self->raw.{{attr}});
+    }
+
+    return PyUnicode_Decode(self->raw.{{attr}}, size, "utf-8", "ignore");
+}
+
+
+int {{name}}_set_{{attr}}({{name}}Object *self, PyObject *value, void *Py_UNUSED(C)) {
+
+    if (check_str(value))
+        return -1;
+   
+    Py_ssize_t len = 0;
+    const char *data = PyUnicode_AsUTF8AndSize(value, &len);
+
+    set_str(
+        self->raw.{{attr}}, data,
+        (size_t)len, sizeof(self->raw.{{attr}})
+    );
+
+    return 0;
+}
+
+{{/strs}}
+
+PyGetSetDef {{name}}_getset[] = {
+    {{#bytes}}
+    {
+        "{{attr}}", 
+        (getter) {{name}}_get_{{attr}},
+        (setter) {{name}}_set_{{attr}},
+        PyDoc_STR("{{name}}'s {{attr}}."),
+        NULL
+    },
+    {{/bytes}}
+    { NULL }
+};
+
+
+/* -------------------- METHODS -------------------- */
+PyObject *{{name}}_bytes({{name}}Object *self, PyObject *Py_UNUSED(ignored)) {
+    return PyBytes_FromStringAndSize(
+        (char *)&self->raw,
+        sizeof({{name}})
+    );
+}
+
+
+PyMethodDef {{name}}_methods[] = {
+    {
+        "__bytes__", (PyCFunction) {{name}}_bytes,
+        METH_NOARGS, "Return the {{name}} bytes"
+    },
+    { NULL }
+};
+
+
+PyMemberDef {{name}}_members[] = {
+    {{#ints}}
+    {
+        "{{attr}}", {{type}}, 
+        offsetof({{name}}Object, raw.{{attr}}), 0, 
+        PyDoc_STR("{{name}}'s {{attr}}.")
+    },
+    {{/ints}}
+    {
+        "idx", T_UINT, 
+        offsetof({{name}}Object, idx), READONLY, 
+        PyDoc_STR("{{name}}'s index.")
+    },
+    { NULL } 
+};
+
+
+PyTypeObject {{name}}Type = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    .tp_name = "tyche.{{name}}",
+    .tp_doc = PyDoc_STR("Plutus {{name}} struct"),
+    .tp_basicsize = sizeof({{name}}Object),
+    .tp_itemsize = 0,
+    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    .tp_init = (initproc){{name}}_init,
+    .tp_new = {{name}}_new,
+    .tp_members = {{name}}_members,
+    .tp_methods = {{name}}_methods,
+    .tp_getset = {{name}}_getset,
+};
+
+
+uint8_t setup_{{name_lower}}(PyObject *module) {
+    if (PyType_Ready(&{{name}}Type) < 0)
+        return -1;
+
+    if (PyModule_AddType(module, &{{name}}Type) < 0) {
+        return -1;
+    }
+
+    PyObject *size = PyLong_FromSize_t(sizeof({{name}}));
+    if (PyDict_SetItemString({{name}}Type.tp_dict, "__size__", size)) {
+        return -1;
+    }
+
+    return 0;
+}
+
