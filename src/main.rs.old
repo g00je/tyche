@@ -1,0 +1,189 @@
+// use core::fmt;
+// use std::{
+//     fs::File,
+//     io::{Read, Seek, SeekFrom},
+//     mem::size_of, fmt::{LowerHex, Display}
+// };
+
+use std::{
+    fs::File,
+    io::{Seek, SeekFrom},
+};
+
+use plutus_macros::model;
+
+
+#[model]
+struct Session;
+
+#[model]
+struct User {
+    agent: u64,
+    review: u64,
+    photo: u64,
+    #[string]
+    phone: [u8; 12],
+    cc: u16,
+    #[string]
+    name: [u8; 50],
+    sessions: [Session; 3],
+}
+
+fn main() {
+    println!("\n--- main ---\n");
+
+    //     const USER_SIZE: usize = size_of::<User>();
+
+    let mut fd = File::open("./user.bin").unwrap();
+    fd.seek(SeekFrom::Start(User::SIZE)).unwrap();
+
+    println!("user size: {}", User::SIZE);
+    let _user = User {
+        flag: 12,
+        gene: 64,
+        agent: 0,
+        review: 0,
+        photo: 0,
+        phone: "",
+        cc: 98,
+        name: "",
+        sessions: [Session {  flag: 0, gene: 0 }; 3],
+    };
+
+    // let mut buf = [0; 368];
+    // fd.read_exact(&mut buf).unwrap();
+    //
+    // let user = User::from(fd);
+    // let user = User::from(buf);
+
+    // let user = User { phone: [0; 12] };
+
+    // println!("{user:?}");
+}
+
+// type GeneId = u32;
+// #[repr(C)]
+// #[derive(Default, Debug, Clone, Copy)]
+// struct Gene {
+//     id: GeneId,
+//     pepper: u16,
+//     server: u16,
+// }
+//
+// impl LowerHex for Gene {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         write!(f, "{:04x}{:04x}{:08x}", self.server, self.pepper, self.id)
+//     }
+// }
+//
+// impl Display for Gene {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         write!(f, "{:x}", self)
+//     }
+// }
+//
+// impl Gene {
+//     fn from_bytes(data: &[u8; size_of::<Gene>()]) -> Self {
+//         Self {
+//             id: GeneId::from_le_bytes(data[0..4].try_into().unwrap()),
+//             pepper: u16::from_le_bytes(data[4..6].try_into().unwrap()),
+//             server: u16::from_le_bytes(data[6..8].try_into().unwrap()),
+//         }
+//     }
+// }
+//
+// #[repr(C)]
+// #[derive(Default, Debug, Clone, Copy)]
+// struct SessionInfo {
+//     client: u8,
+//     os: u8,
+//     browser: u8,
+//     device: u8,
+//     client_version: u16,
+//     os_version: u16,
+//     browser_version: u16,
+//     reserved: u16,
+// }
+//
+// #[repr(C)]
+// #[derive(Debug, Clone, Copy)]
+// struct Session {
+//     ip: [u8; 4],
+//     info: SessionInfo,
+//     timestamp: u64,
+//     token: [u8; 64],
+// }
+//
+// impl Default for Session {
+//     fn default() -> Self {
+//         Self {
+//             ip: [0; 4],
+//             info: SessionInfo::default(),
+//             timestamp: 0,
+//             token: [0; 64],
+//         }
+//     }
+// }
+//
+// #[repr(C)]
+// #[derive(Debug)]
+// struct User {
+//     flag: u64,
+//     gene: Gene,
+//     agent: Gene,
+//     reviews: Gene,
+//     photo: Gene,
+//     phone: [u8; 12],
+//     cc: u16,
+//     name: [u8; 50],
+//     sessions: [Session; 3],
+// }
+//
+// impl Default for User {
+//     fn default() -> Self {
+//         Self {
+//             flag: 0,
+//             gene: Gene::default(),
+//             agent: Gene::default(),
+//             reviews: Gene::default(),
+//             photo: Gene::default(),
+//             phone: [0; 12],
+//             cc: 0,
+//             name: [0; 50],
+//             sessions: [Session::default(); 3],
+//         }
+//     }
+// }
+//
+// // impl User {
+// //     fn from_file(mut reader: impl Read) -> io::Result<Self> {
+// //         // let x = reader.read();
+// //
+// //         // Ok(Self {})
+// //     }
+// // }
+//
+// fn main() {
+
+//
+//     // let x = &buf[9..];
+//
+//     // user.flag = u64::from_le_bytes(buf[0..8].try_into().unwrap());
+//     user.flag = u64::from_le_bytes(buf[0..8].try_into().unwrap());
+//     let g = u64::from_le_bytes(buf[8..16].try_into().unwrap());
+//     println!("g: {}", g);
+//     println!("g: {:016x}", g);
+//     user.gene = Gene::from_bytes(buf[8..16].try_into().unwrap());
+//     // user.gene = u64::from_le_bytes(buf[0..8].try_into().unwrap());
+//     // Gene::from
+//
+//     let x: [u8; 8] = buf[8..16].try_into().unwrap();
+//
+//     // println!("buf: {:?}", buf);
+//     println!("user: {:016x}", user.gene);
+//     println!("user: {}", user.gene);
+//     println!("user: {:02x?}", x);
+//     // println!("user: {:02x?}", y);
+//
+//     // user.flag = buf;
+// }

@@ -1,0 +1,301 @@
+
+use pyo3::prelude::*;
+
+#[repr(C)]
+#[derive(Debug)]
+struct CGene {
+    id: u32,
+    pepper: u16,
+    server: u16,
+}
+impl ::std::convert::From<CGene> for &[u8] {
+    fn from(value: CGene) -> Self {
+        unsafe {
+            ::core::slice::from_raw_parts(
+                &value as *const CGene as *const u8,
+                ::std::mem::size_of::<CGene>(),
+            )
+        }
+    }
+}
+impl ::std::convert::TryFrom<&[u8]> for CGene {
+    type Error = &'static str;
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        unsafe {
+            let value: Result<[u8; ::core::mem::size_of::<CGene>()], _> =
+                value.try_into();
+            match value {
+                Err(_) => Err("invalid input length"),
+                Ok(v) => Ok(::core::mem::transmute_copy(&v)),
+            }
+        }
+    }
+}
+impl ::core::convert::From<&Gene> for CGene {
+    fn from(value: &Gene) -> Self {
+        Self { id: value.id, pepper: value.pepper, server: value.server }
+    }
+}
+#[pyclass]
+#[derive(Clone, Debug)]
+struct Gene {
+    #[pyo3(get, set)]
+    id: u32,
+    #[pyo3(get, set)]
+    pepper: u16,
+    #[pyo3(get, set)]
+    server: u16,
+}
+impl ::core::convert::TryFrom<&[u8]> for Gene {
+    type Error = &'static str;
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        let value: Result<CGene, _> = value.try_into();
+        match value {
+            Err(e) => Err("invalid value to convert"),
+            Ok(value) => Ok(Self {
+                id: value.id,
+                pepper: value.pepper,
+                server: value.server,
+            }),
+        }
+    }
+}
+impl Default for Gene {
+    fn default() -> Self {
+        Self {
+            id: <u32>::default(),
+            pepper: <u16>::default(),
+            server: <u16>::default(),
+        }
+    }
+}
+impl FromPyObject<'_> for Gene {
+    fn extract(value: &PyAny) -> PyResult<Self> {
+        if let Ok(m) = value.extract::<Gene>() {
+            return Ok(m);
+        }
+        if let Ok(data) = value.extract::<&[u8]>() {
+            let m: Result<Gene, _> = data.try_into();
+            return match m {
+                Ok(m) => Ok(m),
+                Err(e) => Err(::pyo3::exceptions::PyValueError::new_err(e)),
+            };
+        }
+        Err(::pyo3::exceptions::PyValueError::new_err("huh"))
+    }
+}
+#[pymethods]
+impl Gene {
+    #[classattr]
+    const SIZE: u64 = ::std::mem::size_of::<CGene>() as u64;
+    #[new]
+    fn py_new(value: Option<&::pyo3::PyAny>) -> ::pyo3::PyResult<Self> {
+        match value {
+            Some(value) => {
+                if let Ok(m) = value.extract::<Gene>() {
+                    return Ok(m);
+                }
+                if let Ok(data) = value.extract::<&[u8]>() {
+                    let m: Result<Gene, _> = data.try_into();
+                    return match m {
+                        Ok(m) => Ok(m),
+                        Err(e) => {
+                            Err(::pyo3::exceptions::PyValueError::new_err(e))
+                        }
+                    };
+                }
+                Ok(Self::default())
+            }
+            None => Ok(Self::default()),
+        }
+    }
+    fn __repr__(&self) -> String {
+        format!("{:#?}", self)
+    }
+    fn __bytes__(&self) -> ::std::borrow::Cow<[u8]> {
+        let data: &[u8] = <CGene>::from(self).into();
+        data.to_owned().into()
+    }
+}
+#[repr(C)]
+#[derive(Debug)]
+struct CUser {
+    flag: u64,
+    gene: CGene,
+    phone: [u8; 12usize],
+    cc: u16,
+    name: [u8; 50usize],
+}
+impl ::std::convert::From<CUser> for &[u8] {
+    fn from(value: CUser) -> Self {
+        unsafe {
+            ::core::slice::from_raw_parts(
+                &value as *const CUser as *const u8,
+                ::std::mem::size_of::<CUser>(),
+            )
+        }
+    }
+}
+impl ::std::convert::TryFrom<&[u8]> for CUser {
+    type Error = &'static str;
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        unsafe {
+            let value: Result<[u8; ::core::mem::size_of::<CUser>()], _> =
+                value.try_into();
+            match value {
+                Err(_) => Err("invalid input length"),
+                Ok(v) => Ok(::core::mem::transmute_copy(&v)),
+            }
+        }
+    }
+}
+impl ::core::convert::From<&User> for CUser {
+    fn from(value: &User) -> Self {
+        Self {
+            flag: value.flag,
+            gene: (&value.gene).into(),
+            phone: {
+                let mut data = value.phone.as_bytes().to_vec();
+                data.resize(12usize, 0);
+                data.as_slice().try_into().unwrap()
+            },
+            cc: value.cc,
+            name: {
+                let mut data = value.name.as_bytes().to_vec();
+                data.resize(50usize, 0);
+                data.as_slice().try_into().unwrap()
+            },
+        }
+    }
+}
+#[pyclass]
+#[derive(Clone, Debug)]
+struct User {
+    #[pyo3(get, set)]
+    flag: u64,
+    #[pyo3(get, set)]
+    gene: Gene,
+    #[pyo3(get)]
+    phone: String,
+    #[pyo3(get, set)]
+    cc: u16,
+    #[pyo3(get)]
+    name: String,
+}
+impl ::core::convert::TryFrom<&[u8]> for User {
+    type Error = &'static str;
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        let value: Result<CUser, _> = value.try_into();
+        match value {
+            Err(e) => Err("invalid value to convert"),
+            Ok(value) => Ok(Self {
+                flag: value.flag,
+                gene: <Gene>::default(),
+                phone: ::std::string::String::from_utf8(value.phone.to_vec())
+                    .unwrap_or_else(|e| {
+                        ::std::string::String::from_utf8(
+                            value.phone[..e.utf8_error().valid_up_to()].into(),
+                        )
+                        .unwrap_or(::std::string::String::new())
+                    }),
+                cc: value.cc,
+                name: ::std::string::String::from_utf8(value.name.to_vec())
+                    .unwrap_or_else(|e| {
+                        ::std::string::String::from_utf8(
+                            value.name[..e.utf8_error().valid_up_to()].into(),
+                        )
+                        .unwrap_or(::std::string::String::new())
+                    }),
+            }),
+        }
+    }
+}
+impl Default for User {
+    fn default() -> Self {
+        Self {
+            flag: <u64>::default(),
+            gene: <Gene>::default(),
+            phone: String::default(),
+            cc: <u16>::default(),
+            name: String::default(),
+        }
+    }
+}
+impl FromPyObject<'_> for User {
+    fn extract(value: &PyAny) -> PyResult<Self> {
+        if let Ok(m) = value.extract::<User>() {
+            return Ok(m);
+        }
+        if let Ok(data) = value.extract::<&[u8]>() {
+            let m: Result<User, _> = data.try_into();
+            return match m {
+                Ok(m) => Ok(m),
+                Err(e) => Err(::pyo3::exceptions::PyValueError::new_err(e)),
+            };
+        }
+        Err(::pyo3::exceptions::PyValueError::new_err("huh"))
+    }
+}
+#[pymethods]
+impl User {
+    #[classattr]
+    const SIZE: u64 = ::std::mem::size_of::<CUser>() as u64;
+    #[new]
+    fn py_new(value: Option<&::pyo3::PyAny>) -> ::pyo3::PyResult<Self> {
+        match value {
+            Some(value) => {
+                if let Ok(m) = value.extract::<User>() {
+                    return Ok(m);
+                }
+                if let Ok(data) = value.extract::<&[u8]>() {
+                    let m: Result<User, _> = data.try_into();
+                    return match m {
+                        Ok(m) => Ok(m),
+                        Err(e) => {
+                            Err(::pyo3::exceptions::PyValueError::new_err(e))
+                        }
+                    };
+                }
+                Ok(Self::default())
+            }
+            None => Ok(Self::default()),
+        }
+    }
+    fn __repr__(&self) -> String {
+        format!("{:#?}", self)
+    }
+    fn __bytes__(&self) -> ::std::borrow::Cow<[u8]> {
+        let data: &[u8] = <CUser>::from(self).into();
+        data.to_owned().into()
+    }
+    #[setter]
+    fn phone(&mut self, mut value: String) -> ::pyo3::PyResult<()> {
+        let mut idx = 12usize;
+        loop {
+            if value.is_char_boundary(idx) {
+                break;
+            }
+            idx -= 1;
+        }
+        value.truncate(idx);
+        let value = match phone_validator(value) {
+            Ok(v) => v,
+            Err(e) => return Err(e),
+        };
+        self.phone = value;
+        Ok(())
+    }
+    #[setter]
+    fn name(&mut self, mut value: String) -> ::pyo3::PyResult<()> {
+        let mut idx = 50usize;
+        loop {
+            if value.is_char_boundary(idx) {
+                break;
+            }
+            idx -= 1;
+        }
+        value.truncate(idx);
+        self.name = value;
+        Ok(())
+    }
+}

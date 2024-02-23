@@ -1,6 +1,0 @@
-cc
--I/usr/include/python3.11/
--Wall
--Werror
--Wextra
--Wno-missing-field-initializers

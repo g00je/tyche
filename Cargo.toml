@@ -1,0 +1,13 @@
+[package]
+name = "plutus"
+edition = "2021"
+version = "0.1.0"
+
+
+[lib]
+name = "plutus"
+crate-type = ["cdylib"]
+
+[dependencies]
+plutus-macros = { path = "plutus-macros" }
+pyo3 = "0"
