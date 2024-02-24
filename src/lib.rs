@@ -1,8 +1,7 @@
+
 use plutus_macros::model;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-
-
 
 
 // use std::ptr::copy_nonoverlapping;
@@ -114,8 +113,8 @@ struct User {
 #[pymodule]
 fn plutus(_py: Python, m: &PyModule) -> PyResult<()> {
     // m.add_function(wrap_pyfunction!(sum_as_string, m)?)?;
-    // m.add_class::<SessionInfo>()?;
-    // m.add_class::<Session>()?;
+    m.add_class::<SessionInfo>()?;
+    m.add_class::<Session>()?;
     m.add_class::<User>()?;
     m.add_class::<Gene>()?;
     Ok(())
