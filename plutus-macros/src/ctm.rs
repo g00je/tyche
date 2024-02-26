@@ -1,6 +1,6 @@
 use crate::parser::{Member, MemberType};
 use proc_macro2::TokenStream;
-use quote::{format_ident, quote};
+use quote::quote;
 
 pub fn ctm(has_models: bool, members: &Vec<Member>) -> TokenStream {
     let ctm_fields = members.iter().map(|m| {
@@ -39,6 +39,7 @@ pub fn ctm(has_models: bool, members: &Vec<Member>) -> TokenStream {
                 None => quote! { #ident: value.#ident, },
             },
             MemberType::Bytes { .. } => quote!(#ident: value.#ident, ),
+            MemberType::Ipv4 => quote!(#ident: value.#ident,),
             MemberType::String { .. } => quote! {
                 // #ident: string_to_array(value.#ident, #len),
                 #ident: ::std::string::String::from_utf8(value.#ident.to_vec())

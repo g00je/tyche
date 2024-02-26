@@ -12,5 +12,10 @@ def randstr():
     ))
 
 
-user = plutus.User(b'A' * plutus.User.SIZE)
-print(json.dumps(user.dict(), indent=4))
+data = b'A' * plutus.User.SIZE
+
+user = plutus.User(data)
+user.cc = 122
+print(user.SIZE)
+
+# print(json.dumps(user.dict(), indent=4))

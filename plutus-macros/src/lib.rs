@@ -1,3 +1,4 @@
+
 use std::io::Write;
 
 use proc_macro::TokenStream;
@@ -5,20 +6,21 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{parse_macro_input, ItemStruct};
 
-mod parser;
-mod mtc;
-mod ctm;
-mod getset;
-mod default;
 mod c_model;
+mod ctm;
+mod default;
 mod dict;
+mod getset;
+mod mtc;
+mod parser;
 use parser::{MemberType, Model};
 
 #[proc_macro_attribute]
-pub fn model(_args: TokenStream, code: TokenStream) -> TokenStream {
+pub fn model(args: TokenStream, code: TokenStream) -> TokenStream {
     let item = parse_macro_input!(code as ItemStruct);
 
-    let Model { ident, c_ident, members, has_models } = parser::parse(item);
+    let Model { ident, c_ident, members, has_models, hexable } =
+        parser::parse(args.into(), item);
     let verr = quote!(::pyo3::exceptions::PyValueError::new_err);
 
     // let string_from_utf8 = quote! {
@@ -29,7 +31,9 @@ pub fn model(_args: TokenStream, code: TokenStream) -> TokenStream {
     // };
 
     let fields = members.iter().map(|m| {
-        if m.private { return None }
+        if m.private {
+            return None;
+        }
 
         fn arr(ty: &MemberType) -> TokenStream2 {
             match ty {
@@ -39,6 +43,7 @@ pub fn model(_args: TokenStream, code: TokenStream) -> TokenStream {
                 }
                 MemberType::Number { ty, .. } => quote! { #ty },
                 MemberType::Bytes { len } => quote!( [u8; #len] ),
+                MemberType::Ipv4 => quote!([u8; 4]),
                 MemberType::String { len, .. } => quote!( [u8; #len] ),
                 MemberType::Model { ty, .. } => quote!( ::pyo3::Py<#ty> ),
                 MemberType::Flag { .. } => quote!(),
@@ -48,7 +53,7 @@ pub fn model(_args: TokenStream, code: TokenStream) -> TokenStream {
         let ident = &m.ident;
         Some(match &m.ty {
             MemberType::Number { ty, .. } => quote! {
-                #[pyo3(get, set)]
+                #[pyo3(get)]
                 #ident:#ty,
             },
             MemberType::Array { ty, len } => {
@@ -59,6 +64,7 @@ pub fn model(_args: TokenStream, code: TokenStream) -> TokenStream {
                 }
             }
             MemberType::Bytes { len } => quote! { #ident: [u8; #len], },
+            MemberType::Ipv4 => quote!( #ident: [u8; 4], ),
             MemberType::String { .. } => quote! {
                 #[pyo3(get)]
                 #ident: String,
@@ -71,7 +77,7 @@ pub fn model(_args: TokenStream, code: TokenStream) -> TokenStream {
         })
     });
 
-    let dict_method = dict::dict_method(&members);
+    let dict_method = dict::dict_method(hexable, &c_ident, &members);
     let default_tokens = default::default(has_models, &members);
     let getsets = getset::getset(&members);
     let c_struct = c_model::c_model(&c_ident, &members);
@@ -91,7 +97,7 @@ pub fn model(_args: TokenStream, code: TokenStream) -> TokenStream {
 
         #[::pyo3::pyclass]
         #[derive(Clone, Debug)]
-        struct #ident {
+        pub struct #ident {
             #(#fields)*
         }
 
@@ -179,18 +185,19 @@ pub fn model(_args: TokenStream, code: TokenStream) -> TokenStream {
             }
 
             fn __bytes__(&self) -> ::pyo3::PyResult<::std::borrow::Cow<[u8]>> {
-                let data: &[u8] = <#c_ident>::try_from(self.clone())?.into();
+                let x = <#c_ident>::try_from(self.clone())?;
+                let data: Vec<u8> = <#c_ident>::try_from(self.clone())?.into();
                 Ok(data.to_owned().into())
             }
 
             fn __eq__(&self, other: &Self) -> ::pyo3::PyResult<bool> {
-                let a: &[u8] = <#c_ident>::try_from(self.clone())?.into();
-                let b: &[u8] = <#c_ident>::try_from(other.clone())?.into();
+                let a: Vec<u8> = <#c_ident>::try_from(self.clone())?.into();
+                let b: Vec<u8> = <#c_ident>::try_from(other.clone())?.into();
                 Ok(a == b)
             }
 
             fn hex(&self) -> ::pyo3::PyResult<String> {
-                let data: &[u8] = <#c_ident>::try_from(self.clone())?.into();
+                let data: Vec<u8> = <#c_ident>::try_from(self.clone())?.into();
                 Ok(data.iter().map(|x| format!("{x:02x}")).collect())
             }
 
@@ -246,14 +253,14 @@ pub fn model(_args: TokenStream, code: TokenStream) -> TokenStream {
     };
 
     // println!("\n\n{output}\n\n");
-    let mut p = ::std::process::Command::new("rustfmt")
-        .stdin(::std::process::Stdio::piped())
-        // .stdout(::std::process::Stdio::piped())
-        // .stderr(::std::process::Stdio::piped())
-        .spawn()
-        .unwrap();
-    let mut stdin = p.stdin.take().unwrap();
-    stdin.write_all(output.to_string().as_bytes()).unwrap();
+    // let mut p = ::std::process::Command::new("rustfmt")
+    //     .stdin(::std::process::Stdio::piped())
+    //     // .stdout(::std::process::Stdio::piped())
+    //     // .stderr(::std::process::Stdio::piped())
+    //     .spawn()
+    //     .unwrap();
+    // let mut stdin = p.stdin.take().unwrap();
+    // stdin.write_all(output.to_string().as_bytes()).unwrap();
 
     // let mut buf = String::new();
     // stdout.read_to_string(&mut buf).unwrap();

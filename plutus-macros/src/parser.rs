@@ -1,4 +1,4 @@
-use proc_macro2::{Ident, TokenTree};
+use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::format_ident;
 
 use syn::{
@@ -6,7 +6,7 @@ use syn::{
     FieldsNamed, ItemStruct, Lit, Meta,
 };
 
-use syn::Type;
+use syn::{LitInt, Type};
 
 #[derive(Debug)]
 pub enum MemberType {
@@ -16,13 +16,14 @@ pub enum MemberType {
     Model { ty: Ident, cty: Ident },
     Array { ty: Box<MemberType>, len: usize },
     Flag { fl: Ident },
+    Ipv4,
 }
 
 #[derive(Debug)]
 pub struct Member {
     pub ident: Ident,
     pub ty: MemberType,
-    pub private: bool
+    pub private: bool,
 }
 
 #[derive(Debug)]
@@ -31,15 +32,23 @@ pub struct Model {
     pub c_ident: Ident,
     pub members: Vec<Member>,
     pub has_models: bool,
+    pub hexable: bool,
 }
 
-pub(crate) fn parse(item: ItemStruct) -> Model {
+pub(crate) fn parse(args: TokenStream, item: ItemStruct) -> Model {
     let members = parse_fields(item.fields);
     let model = Model {
         c_ident: format_ident!("C{}", item.ident),
         ident: item.ident,
         has_models: has_model(members.as_slice()),
         members,
+        hexable: args.into_iter().any(|x| {
+            if let TokenTree::Ident(i) = x {
+                i.to_string() == "hex"
+            } else {
+                false
+            }
+        }),
     };
 
     model
@@ -105,7 +114,7 @@ fn parse_member(f: &Field) -> Member {
     Member {
         ident: ident.clone(),
         ty: parse_type(&f.ty, &parse_attrs(&f.attrs)),
-        private: ident.to_string().chars().next().unwrap() == '_'
+        private: ident.to_string().chars().next().unwrap() == '_',
     }
 }
 
@@ -114,6 +123,7 @@ enum Attr {
     Str { validator: Option<Ident> },
     Int { min: Option<usize>, max: Option<usize> },
     Flg,
+    Ip4,
     Non,
 }
 
@@ -129,6 +139,7 @@ fn parse_attrs(attrs: &Vec<Attribute>) -> Attr {
             "str" => Attr::Str { validator: None },
             "int" => Attr::Int { min: None, max: None },
             "flag" => Attr::Flg,
+            "ipv4" => Attr::Ip4,
             _ => Attr::Non,
         },
         Meta::List(m) => {
@@ -165,8 +176,37 @@ fn parse_attrs(attrs: &Vec<Attribute>) -> Attr {
                         }
                     }),
                 },
-                "int" => Attr::Int { min: None, max: None },
+                "int" => {
+                    let mut min = None;
+                    let mut max = None;
+
+                    for (i, t) in values {
+                        let i = i.to_string();
+                        match i.as_str() {
+                            "min" | "max" => {
+                                let amount = Some(match &t {
+                                    TokenTree::Literal(lit) => {
+                                        LitInt::from(lit.clone())
+                                            .base10_parse::<usize>()
+                                            .unwrap()
+                                    }
+                                    _ => panic!("invalid {i}"),
+                                });
+
+                                if i == "min" {
+                                    min = amount;
+                                } else {
+                                    max = amount;
+                                }
+                            }
+                            _ => (),
+                        }
+                    }
+
+                    Attr::Int { min, max }
+                }
                 "flag" => Attr::Flg,
+                "ipv4" => Attr::Ip4,
                 _ => Attr::Non,
             }
         }
@@ -190,7 +230,15 @@ fn parse_type(ty: &Type, attr: &Attr) -> MemberType {
                     cty: format_ident!("C{}", ident),
                 }
             } else {
-                MemberType::Number { ty: ident.clone(), min: None, max: None }
+                if let Attr::Int { min, max } = attr {
+                    MemberType::Number { ty: ident.clone(), min: *min, max: *max }
+                } else {
+                    MemberType::Number {
+                        ty: ident.clone(),
+                        min: None,
+                        max: None,
+                    }
+                }
             }
         }
         Type::Array(arr) => {
@@ -212,6 +260,12 @@ fn parse_type(ty: &Type, attr: &Attr) -> MemberType {
                             len,
                             validator: validator.clone(),
                         },
+                        Attr::Ip4 => {
+                            if len != 4 {
+                                panic!("ipv4 length must be 4")
+                            }
+                            MemberType::Ipv4
+                        }
                         Attr::Non => MemberType::Bytes { len },
                         _ => todo!("idk about this"),
                     };

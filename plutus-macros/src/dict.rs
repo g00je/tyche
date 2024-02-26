@@ -2,7 +2,21 @@ use crate::parser::{Member, MemberType};
 use proc_macro2::{TokenStream, Ident};
 use quote::quote;
 
-pub fn dict_method(members: &Vec<Member>) -> TokenStream {
+pub fn dict_method(hexable: bool, c_ident: &Ident, members: &Vec<Member>) -> TokenStream {
+
+    if hexable {
+        return quote! {
+            fn dict(&self) -> ::pyo3::PyResult<::std::string::String> {
+                let data: Vec<u8> = <#c_ident>::try_from(self.clone())?.into();
+                Ok(
+                    data.iter().map(|x| format!("{x:02x}"))
+                        .collect::<::std::string::String>()
+                )
+            }
+        };
+    }
+
+
     let dict_fields = members.iter().map(|m| {
         if m.private {return None}
         let key = m.ident.to_string();
@@ -25,6 +39,13 @@ pub fn dict_method(members: &Vec<Member>) -> TokenStream {
                 MemberType::Bytes { .. } => Some(quote!{
                     self.#ident #(#index)* .iter().map(|x| format!("{x:02x}")).collect::<String>(),
                 }),
+                MemberType::Ipv4 => Some(quote!{{
+                    let value = self.#ident #(#index)*;
+                    value.iter().enumerate().map(|(i, x)| {
+                        let x = x.to_string();
+                        if i < value.len()-1 {x + "."} else {x}
+                    }).collect::<String>()
+                }}),
                 MemberType::Number { .. } => Some(quote! {
                     self.#ident #(#index)*,
                 }),
@@ -49,11 +70,20 @@ pub fn dict_method(members: &Vec<Member>) -> TokenStream {
                     dict.set_item( #key, [ #(#x)* ] )?; 
                 })
             },
+            MemberType::Ipv4 => Some(quote!{
+                dict.set_item(
+                    #key, 
+                    self.#ident.iter().enumerate().map(|(i, x)| {
+                        let x = x.to_string();
+                        if i < self.#ident.len()-1 {x + "."} else {x}
+                    }).collect::<String>()
+                )?;
+            }),
             MemberType::Bytes { .. } => Some(quote!{
                 dict.set_item(
                     #key, 
                     self.#ident.iter().map(|x| format!("{x:02x}")).collect::<String>()
-                )?; 
+                )?;
             }),
             MemberType::Number { .. } => Some(quote! {
                 dict.set_item(#key, self.#ident)?; 

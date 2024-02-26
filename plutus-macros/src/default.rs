@@ -21,6 +21,7 @@ pub fn default(has_models: bool, members: &Vec<Member>) -> TokenStream {
                 }
                 MemberType::Number { .. } => quote! { 0 },
                 MemberType::Bytes { len } => quote!( [0; #len] ),
+                MemberType::Ipv4 => quote!([0, 0, 0, 0]),
                 MemberType::String { len, .. } => quote!( [0; #len] ),
                 MemberType::Model { ty, .. } => {
                     quote!( ::pyo3::Py::new(py, <#ty>::default()?)? )
@@ -40,6 +41,7 @@ pub fn default(has_models: bool, members: &Vec<Member>) -> TokenStream {
                 s
             }
             MemberType::Bytes { len } => quote!(#ident: [0; #len], ),
+            MemberType::Ipv4 => quote!(#ident: [0, 0, 0, 0],),
             MemberType::String { .. } => quote!(#ident: String::default(), ),
             MemberType::Model { ty, .. } => {
                 quote!(#ident: ::pyo3::Py::new(py, <#ty>::default()?)?, )

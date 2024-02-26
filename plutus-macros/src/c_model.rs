@@ -15,6 +15,7 @@ pub fn c_model(c_ident: &Ident, members: &Vec<Member>) -> TokenStream {
                 MemberType::String { len, .. } => quote!( [u8; #len] ),
                 MemberType::Model { cty, .. } => quote!( #cty ),
                 MemberType::Flag { .. } => quote!(),
+                MemberType::Ipv4  => quote!([u8; 4]),
             }
         }
 
@@ -30,6 +31,7 @@ pub fn c_model(c_ident: &Ident, members: &Vec<Member>) -> TokenStream {
             MemberType::String { len, .. } => quote!(#ident: [u8; #len], ),
             MemberType::Model { cty, .. } => quote!(#ident: #cty, ),
             MemberType::Flag { .. } => quote!(),
+            MemberType::Ipv4  => quote!(#ident: [u8; 4],),
         }
     });
 
@@ -44,13 +46,13 @@ pub fn c_model(c_ident: &Ident, members: &Vec<Member>) -> TokenStream {
             const SIZE: usize = ::core::mem::size_of::<#c_ident>();
         }
 
-        impl ::std::convert::From<#c_ident> for &[u8] {
+        impl ::std::convert::From<#c_ident> for Vec<u8> {
             fn from(value: #c_ident) -> Self {
                 unsafe {
                     ::core::slice::from_raw_parts(
                         &value as *const #c_ident as *const u8,
                         <#c_ident>::SIZE
-                    )
+                    ).iter().map(|x| *x).collect::<Vec<u8>>()
                 }
             }
         }

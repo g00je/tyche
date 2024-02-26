@@ -31,14 +31,14 @@ fn phone_validator(value: String) -> PyResult<String> {
     }
 }
 
-#[model]
+#[model(hex, a, b = 12)]
 struct Gene {
     id: u32,
     pepper: u16,
     server: u16,
 }
 
-#[model(inner)]
+#[model]
 struct SessionInfo {
     client: u8,
     os: u8,
@@ -50,7 +50,7 @@ struct SessionInfo {
     _reserved: u16,
 }
 
-#[model(inner)]
+#[model]
 struct Session {
     #[ipv4]
     ip: [u8; 4],
@@ -74,7 +74,6 @@ struct User {
     #[str]
     name: [u8; 50],
     sessions: [Session; 3],
-    mat: [[Gene; 3]; 2],
 }
 
 #[pymodule]
