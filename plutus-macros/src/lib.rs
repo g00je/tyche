@@ -1,18 +1,25 @@
-use std::{io::{Read, Seek, Write}, thread::sleep};
+use std::io::Write;
 
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
-use quote::{format_ident, quote};
+use quote::quote;
 use syn::{parse_macro_input, ItemStruct};
 
 mod parser;
+mod mtc;
+mod ctm;
+mod getset;
+mod default;
+mod c_model;
+mod dict;
 use parser::{MemberType, Model};
 
 #[proc_macro_attribute]
 pub fn model(_args: TokenStream, code: TokenStream) -> TokenStream {
     let item = parse_macro_input!(code as ItemStruct);
 
-    let Model { ident, c_ident, members } = parser::parse(item);
+    let Model { ident, c_ident, members, has_models } = parser::parse(item);
+    let verr = quote!(::pyo3::exceptions::PyValueError::new_err);
 
     // let string_from_utf8 = quote! {
     //     ::std::string::String::from_utf8(value.clone()).unwrap_or_else(|e| {
@@ -21,35 +28,9 @@ pub fn model(_args: TokenStream, code: TokenStream) -> TokenStream {
     //     })
     // };
 
-    let c_fields = members.iter().map(|m| {
-        fn arr(ty: &MemberType) -> TokenStream2 {
-            match ty {
-                MemberType::Array { ty, len } => {
-                    let ty = arr(&ty);
-                    quote!( [#ty; #len] )
-                }
-                MemberType::Number { ty, .. } => quote! { #ty },
-                MemberType::Bytes { len } => quote!( [u8; #len] ),
-                MemberType::String { len, .. } => quote!( [u8; #len] ),
-                MemberType::Model { cty, .. } => quote!( #cty ),
-            }
-        }
-
-        let ident = &m.ident;
-
-        match &m.ty {
-            MemberType::Number { ty, .. } => quote!(#ident : #ty,),
-            MemberType::Array { ty, len } => {
-                let ty = arr(ty);
-                quote! { #ident: [#ty; #len], }
-            }
-            MemberType::Bytes { len } => quote!(#ident: [u8; #len], ),
-            MemberType::String { len, .. } => quote!(#ident: [u8; #len], ),
-            MemberType::Model { cty, .. } => quote!(#ident: #cty, ),
-        }
-    });
-
     let fields = members.iter().map(|m| {
+        if m.private { return None }
+
         fn arr(ty: &MemberType) -> TokenStream2 {
             match ty {
                 MemberType::Array { ty, len } => {
@@ -59,12 +40,13 @@ pub fn model(_args: TokenStream, code: TokenStream) -> TokenStream {
                 MemberType::Number { ty, .. } => quote! { #ty },
                 MemberType::Bytes { len } => quote!( [u8; #len] ),
                 MemberType::String { len, .. } => quote!( [u8; #len] ),
-                MemberType::Model { ty, .. } => quote!( #ty ),
+                MemberType::Model { ty, .. } => quote!( ::pyo3::Py<#ty> ),
+                MemberType::Flag { .. } => quote!(),
             }
         }
 
         let ident = &m.ident;
-        match &m.ty {
+        Some(match &m.ty {
             MemberType::Number { ty, .. } => quote! {
                 #[pyo3(get, set)]
                 #ident:#ty,
@@ -85,243 +67,25 @@ pub fn model(_args: TokenStream, code: TokenStream) -> TokenStream {
                 #[pyo3(get, set)]
                 #ident: ::pyo3::Py<#ty>,
             },
-        }
+            MemberType::Flag { .. } => quote!(),
+        })
     });
 
-    let default_fields = members.iter().map(|m| {
-        fn arr(ty: &MemberType) -> TokenStream2 {
-            match ty {
-                MemberType::Array { ty, len } => {
-                    let ty = arr(&ty);
-                    let mut list = Vec::with_capacity(*len);
-                    for _ in 0..*len {
-                        list.push(ty.clone());
-                    }
-                    quote!( [#(#list),*] )
-                }
-                MemberType::Number { .. } => quote! { 0 },
-                MemberType::Bytes { len } => quote!( [0; #len] ),
-                MemberType::String { len, .. } => quote!( [0; #len] ),
-                MemberType::Model { ty, .. } => quote!( ::pyo3::Py::new(py, <#ty>::default()?)? ),
-            }
-        }
-
-        let ident = &m.ident;
-        match &m.ty {
-            MemberType::Array { ty, len } => {
-                let ty = arr(ty);
-                let mut list = Vec::with_capacity(*len);
-                for _ in 0..*len {
-                    list.push(ty.clone());
-                }
-                quote! { #ident: [#(#list),*], }
-            }
-            MemberType::Bytes { len } => quote!(#ident: [0; #len], ),
-            MemberType::String { .. } => quote!(#ident: String::default(), ),
-            MemberType::Model { ty, .. } => quote!(#ident: ::pyo3::Py::new(py, <#ty>::default()?)?, ),
-            MemberType::Number { .. } => quote!(#ident: 0, ),
-        }
-    });
-
-    let mtc_fields = members.iter().map(|m| {
-        fn arr(ty: &MemberType) -> Option<TokenStream2> {
-            match ty {
-                MemberType::Array { ty, .. } => match arr(&ty) {
-                    Some(ty) => Some(quote!( x.map(|x| #ty ) )),
-                    None => None,
-                },
-                MemberType::Model { .. } => Some(quote!(x.try_into()?)),
-                _ => None,
-            }
-        }
-        let ident = &m.ident;
-        match &m.ty {
-            MemberType::Array { ty, .. } => match arr(ty) {
-                Some(ty) => quote! { #ident: value.#ident.map(|x| #ty ), },
-                None => quote! { #ident: value.#ident, },
-            },
-            MemberType::Bytes { .. } => quote!(#ident: value.#ident, ),
-            MemberType::String { len, .. } => quote! {
-                // #ident: string_to_array(value.#ident, #len),
-                #ident: {
-                    let mut data = value.#ident.as_bytes().to_vec();
-                    data.resize(#len, 0);
-                    data.as_slice().try_into().unwrap()
-                },
-            },
-            MemberType::Model { .. } => {
-                quote!(#ident: value.#ident.try_borrow(py)?.clone().try_into()?, )
-            }
-            MemberType::Number { .. } => quote!(#ident: value.#ident, ),
-        }
-    });
-
-    let ctm_fields = members.iter().map(|m| {
-        fn arr(ty: &MemberType) -> Option<TokenStream2> {
-            match ty {
-                MemberType::Array { ty, .. } => match arr(&ty) {
-                    Some(ty) => Some(quote!( x.map(|x| #ty ) )),
-                    None => None,
-                },
-                MemberType::Model { .. } => Some(quote!(x.try_into()?)),
-                _ => None,
-            }
-        }
-
-        let ident = &m.ident;
-        match &m.ty {
-            MemberType::Array { ty, .. } => match arr(ty) {
-                Some(ty) => quote! { #ident: value.#ident.map(|x| #ty ), },
-                None => quote! { #ident: value.#ident, },
-            },
-            MemberType::Bytes { .. } => quote!(#ident: value.#ident, ),
-            MemberType::String { .. } => quote! {
-                // #ident: string_to_array(value.#ident, #len),
-                #ident: ::std::string::String::from_utf8(value.#ident.to_vec())
-                    .unwrap_or_else(|e| {
-                        ::std::string::String::from_utf8(
-                            value.#ident[..e.utf8_error().valid_up_to()].into()
-                        ).unwrap_or(::std::string::String::new())
-                    }),
-            },
-            MemberType::Model { ty, .. } => {
-                quote!{
-                    #ident : {
-                        let v: #ty = value.#ident.try_into()?;
-                        ::pyo3::Py::new(py, v)?
-                    },
-                }
-            }
-            MemberType::Number { .. } => quote!(#ident: value.#ident, ),
-        }
-    });
-
-    let get_sets = members.iter().map(|m| {
-        let ident = &m.ident;
-        match &m.ty {
-            MemberType::Bytes { len } => {
-                let get_ident = format_ident!("get_{}", ident);
-                let set_ident = format_ident!("set_{}", ident);
-
-                quote!{
-                    #[getter]
-                    fn #get_ident(&self) -> &[u8] {
-                        &self.#ident
-                    }
-
-                    #[setter]
-                    fn #set_ident(&mut self, value: &[u8]) -> ::pyo3::PyResult<()> {
-                        if value.len() != #len {
-                            return Err(::pyo3::exceptions::PyValueError::new_err(
-                                format!("input length must be {}", #len)
-                            ));
-                        }
-
-                        self.#ident = match value.try_into() {
-                            Err(_) => return Err(
-                                ::pyo3::exceptions::PyValueError::new_err(
-                                    "invalid input"
-                                )),
-                            Ok(v) => v
-                        };
-
-                        Ok(())
-                    }
-                }
-            },
-            MemberType::String { len, validator } => {
-                let mut validation: Option<TokenStream2> = None;
-                if let Some(v) = validator {
-                    validation = Some(quote! {
-                        let value = match #v(value) {
-                            Ok(v) => v,
-                            Err(e) => return Err(e)
-                        };
-                    });
-                }
-
-                quote! {
-                    #[setter]
-                    fn #ident(&mut self, mut value: String) -> ::pyo3::PyResult<()> {
-                        let mut idx = #len;
-                        loop {
-                            if value.is_char_boundary(idx) {
-                                break;
-                            }
-                            idx -= 1;
-                        }
-                        value.truncate(idx);
-
-                        #validation
-
-                        self.#ident = value;
-
-                        // let mut value = value.as_bytes().to_vec();
-                        // value.resize(#len, 0);
-                        //
-                        // self.#ident = #string_from_utf8;
-
-                        Ok(())
-                    }
-                }
-            },
-            MemberType::Model { .. } => {
-                quote! {
-                    // #[getter]
-                    // fn #ident(&self) -> &#ty {
-                    //     &self.#ident
-                    // }
-                }
-            },
-            _ => quote!(),
-        }
-    });
+    let dict_method = dict::dict_method(&members);
+    let default_tokens = default::default(has_models, &members);
+    let getsets = getset::getset(&members);
+    let c_struct = c_model::c_model(&c_ident, &members);
+    let mtc_tokens = mtc::mtc(has_models, &members);
+    let ctm_tokens = ctm::ctm(has_models, &members);
 
     let output = quote! {
-        #[repr(C)]
-        #[derive(Debug)]
-        struct #c_ident {
-            #(#c_fields)*
-        }
-
-        impl #c_ident {
-            const SIZE: usize = ::core::mem::size_of::<#c_ident>();
-        }
-
-        impl ::std::convert::From<#c_ident> for &[u8] {
-            fn from(value: #c_ident) -> Self {
-                unsafe {
-                    ::core::slice::from_raw_parts(
-                        &value as *const #c_ident as *const u8,
-                        <#c_ident>::SIZE
-                    )
-                }
-            }
-        }
-
-        impl ::std::convert::TryFrom<&[u8]> for #c_ident {
-            type Error = ::pyo3::PyErr;
-
-            fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-                unsafe {
-                    let value: Result<[u8; <#c_ident>::SIZE], _> = value.try_into();
-                    match value {
-                        Err(_) => Err(::pyo3::exceptions::PyValueError::new_err("invalid input length")),
-                        Ok(v) => Ok(::core::mem::transmute_copy(&v))
-                    }
-                }
-            }
-        }
+        #c_struct
 
         impl ::core::convert::TryFrom<#ident> for #c_ident {
             type Error = ::pyo3::PyErr;
 
             fn try_from(value: #ident) -> Result<Self, Self::Error> {
-                ::pyo3::Python::with_gil(|py| {
-                    Ok(Self {
-                        #(#mtc_fields)*
-                    })
-                })
+                #mtc_tokens
             }
         }
 
@@ -335,11 +99,7 @@ pub fn model(_args: TokenStream, code: TokenStream) -> TokenStream {
             type Error = ::pyo3::PyErr;
 
             fn try_from(value: #c_ident) -> Result<Self, Self::Error> {
-                ::pyo3::Python::with_gil(|py| {
-                    Ok(Self {
-                        #(#ctm_fields)*
-                    })
-                })
+                #ctm_tokens
             }
         }
 
@@ -349,43 +109,15 @@ pub fn model(_args: TokenStream, code: TokenStream) -> TokenStream {
             fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
                 let value: Result<#c_ident, _> = value.try_into();
                 match value {
-                    Err(_) => Err(::pyo3::exceptions::PyValueError::new_err("invalid value to convert")),
+                    Err(_) => Err(#verr("invalid value to convert")),
                     Ok(value) => Ok(value.try_into()?)
                 }
             }
         }
 
-        impl ::core::convert::TryFrom<&str> for #ident {
-            type Error = ::pyo3::PyErr;
-
-            fn try_from(value: &str) -> Result<Self, Self::Error> {
-                if value.len() != <#c_ident>::SIZE * 2 {
-                    return Err(::pyo3::exceptions::PyValueError::new_err("invalid length"));
-                }
-
-                let value: Result<Vec<u8>, ::core::num::ParseIntError> = (0..value.len())
-                    .step_by(2)
-                    .map(|i| u8::from_str_radix(&value[i..i + 2], 16))
-                    .collect();
-
-                let value = match value {
-                    Err(_) => return Err(::pyo3::exceptions::PyValueError::new_err("invalid hex")),
-                    Ok(v) => v
-                };
-
-                let value: #c_ident = value.as_slice().try_into()?;
-
-                Ok(value.try_into()?)
-            }
-        }
-
         impl #ident {
             fn default() -> ::pyo3::PyResult<Self> {
-                ::pyo3::Python::with_gil(|py| {
-                    Ok(Self {
-                        #(#default_fields)*
-                    })
-                })
+                #default_tokens
             }
         }
 
@@ -402,20 +134,38 @@ pub fn model(_args: TokenStream, code: TokenStream) -> TokenStream {
                             return Ok(m);
                         }
 
-                        if let Ok(data) = value.extract::<&[u8]>() {
-                            let m: Result<#ident, _> = data.try_into();
-                            return match m {
-                                Ok(m) => Ok(m),
-                                Err(e) => Err(::pyo3::exceptions::PyValueError::new_err(e))
-                            };
-                        }
+                        let result: Result<Vec<u8>, _> = value.extract::<Vec<u8>>().or_else(|_| {
+                            match value.extract::<String>() {
+                                Err(e) => Err(e),
+                                Ok(v) => {
+                                    if v.len() != <#c_ident>::SIZE * 2 {
+                                        return Err(#verr("invalid length"));
+                                    }
 
-                        if let Ok(data) = value.extract::<String>() {
-                            let m: Result<#ident, _> = data.as_str().try_into();
-                            return match m {
-                                Ok(m) => Ok(m),
-                                Err(e) => Err(::pyo3::exceptions::PyValueError::new_err(e))
-                            };
+                                    let v: Result<
+                                            Vec<u8>, ::core::num::ParseIntError
+                                        > = (0..v.len()).step_by(2)
+                                            .map(|i| u8::from_str_radix(&v[i..i + 2], 16))
+                                            .collect();
+
+                                    match v {
+                                        Err(_) => Err(#verr("invalid hex")),
+                                        Ok(v) => Ok(v)
+                                    }
+                                }
+                            }
+                        });
+
+
+                        if let Ok(data) = result {
+                            let data = data.as_slice();
+
+                            if data.len() != <#c_ident>::SIZE {
+                                return Err(#verr("invalid input length"));
+                            }
+
+                            let m: #ident = data.try_into()?;
+                            return Ok(m);
                         }
 
                         Ok(Self::default()?)
@@ -439,7 +189,59 @@ pub fn model(_args: TokenStream, code: TokenStream) -> TokenStream {
                 Ok(a == b)
             }
 
-            #(#get_sets)*
+            fn hex(&self) -> ::pyo3::PyResult<String> {
+                let data: &[u8] = <#c_ident>::try_from(self.clone())?.into();
+                Ok(data.iter().map(|x| format!("{x:02x}")).collect())
+            }
+
+            #[classmethod]
+            fn batch(cls: &::pyo3::types::PyType, value: &::pyo3::PyAny) -> ::pyo3::PyResult<Vec<Self>> {
+                let result: Result<Vec<u8>, _> = value.extract::<Vec<u8>>().or_else(|_| {
+                    match value.extract::<String>() {
+                        Err(e) => Err(e),
+                        Ok(v) => {
+                            if v.len() != <#c_ident>::SIZE * 2 {
+                                return Err(#verr("invalid hex length"));
+                            }
+
+                            let v: Result<
+                                    Vec<u8>, ::core::num::ParseIntError
+                                > = (0..v.len()).step_by(2)
+                                    .map(|i| u8::from_str_radix(&v[i..i + 2], 16))
+                                    .collect();
+
+                            match v {
+                                Err(_) => Err(#verr("invalid hex")),
+                                Ok(v) => Ok(v)
+                            }
+                        }
+                    }
+                });
+
+                if let Ok(data) = result {
+                    let data = data.as_slice();
+
+                    if data.len() % <#c_ident>::SIZE != 0 {
+                        return Err(#verr(
+                            "invalid input length"
+                        ));
+                    }
+
+                    let total = data.len() / <#c_ident>::SIZE;
+                    let mut result: Vec<#ident> = Vec::with_capacity(total);
+                    for chunk in data.chunks(<#c_ident>::SIZE) {
+                        result.push(chunk.try_into()?);
+                    }
+
+                    return Ok(result)
+                }
+
+                Err(#verr("invalid data"))
+            }
+
+            #dict_method
+
+            #getsets
         }
     };
 

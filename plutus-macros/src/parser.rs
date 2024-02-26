@@ -15,12 +15,14 @@ pub enum MemberType {
     Bytes { len: usize },
     Model { ty: Ident, cty: Ident },
     Array { ty: Box<MemberType>, len: usize },
+    Flag { fl: Ident },
 }
 
 #[derive(Debug)]
 pub struct Member {
     pub ident: Ident,
     pub ty: MemberType,
+    pub private: bool
 }
 
 #[derive(Debug)]
@@ -28,18 +30,34 @@ pub struct Model {
     pub ident: Ident,
     pub c_ident: Ident,
     pub members: Vec<Member>,
+    pub has_models: bool,
 }
 
 pub(crate) fn parse(item: ItemStruct) -> Model {
+    let members = parse_fields(item.fields);
     let model = Model {
         c_ident: format_ident!("C{}", item.ident),
         ident: item.ident,
-        members: parse_fields(item.fields),
+        has_models: has_model(members.as_slice()),
+        members,
     };
 
-    // println!("{model:#?}");
-
     model
+}
+
+fn has_model(members: &[Member]) -> bool {
+    fn arr(ty: &MemberType) -> bool {
+        match ty {
+            MemberType::Array { ty, .. } => arr(ty),
+            MemberType::Model { .. } => true,
+            _ => false,
+        }
+    }
+
+    members
+        .iter()
+        .find_map(|m| if arr(&m.ty) { Some(()) } else { None })
+        .is_some()
 }
 
 fn parse_fields(fields: Fields) -> Vec<Member> {
@@ -52,7 +70,30 @@ fn parse_fields(fields: Fields) -> Vec<Member> {
         _ => panic!("invalid struct fields"),
     };
 
-    fields.named.iter().map(parse_member).collect()
+    let mut members: Vec<Member> =
+        fields.named.iter().map(parse_member).collect();
+
+    if members.iter().any(|m| m.ident.to_string() == "flag") {
+        members.push(Member {
+            ident: format_ident!("alive"),
+            ty: MemberType::Flag { fl: format_ident!("FLAG_ALIVE") },
+            private: false,
+        });
+
+        members.push(Member {
+            ident: format_ident!("edited"),
+            ty: MemberType::Flag { fl: format_ident!("FLAG_EDITED") },
+            private: false,
+        });
+
+        members.push(Member {
+            ident: format_ident!("private"),
+            ty: MemberType::Flag { fl: format_ident!("FLAG_PRIVATE") },
+            private: false,
+        });
+    }
+
+    members
 }
 
 fn parse_member(f: &Field) -> Member {
@@ -64,6 +105,7 @@ fn parse_member(f: &Field) -> Member {
     Member {
         ident: ident.clone(),
         ty: parse_type(&f.ty, &parse_attrs(&f.attrs)),
+        private: ident.to_string().chars().next().unwrap() == '_'
     }
 }
 
@@ -71,6 +113,7 @@ fn parse_member(f: &Field) -> Member {
 enum Attr {
     Str { validator: Option<Ident> },
     Int { min: Option<usize>, max: Option<usize> },
+    Flg,
     Non,
 }
 
@@ -85,6 +128,7 @@ fn parse_attrs(attrs: &Vec<Attribute>) -> Attr {
         Meta::Path(m) => match m.segments[0].ident.to_string().as_str() {
             "str" => Attr::Str { validator: None },
             "int" => Attr::Int { min: None, max: None },
+            "flag" => Attr::Flg,
             _ => Attr::Non,
         },
         Meta::List(m) => {
@@ -122,6 +166,7 @@ fn parse_attrs(attrs: &Vec<Attribute>) -> Attr {
                     }),
                 },
                 "int" => Attr::Int { min: None, max: None },
+                "flag" => Attr::Flg,
                 _ => Attr::Non,
             }
         }
@@ -136,17 +181,16 @@ fn parse_type(ty: &Type, attr: &Attr) -> MemberType {
     match &ty {
         Type::Path(ty) => {
             let ident = &ty.path.segments[0].ident;
+            if let Attr::Flg = attr {
+                return MemberType::Flag { fl: ident.clone() };
+            }
             if ident.to_string().chars().next().unwrap().is_uppercase() {
                 MemberType::Model {
                     ty: ident.clone(),
                     cty: format_ident!("C{}", ident),
                 }
             } else {
-                MemberType::Number {
-                    ty: ty.path.segments[0].ident.clone(),
-                    min: None,
-                    max: None,
-                }
+                MemberType::Number { ty: ident.clone(), min: None, max: None }
             }
         }
         Type::Array(arr) => {

@@ -1,51 +1,18 @@
-
 use plutus_macros::model;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
+static PAGE_SIZE: u64 = 32;
+static REQUEST_SIZE: u64 = 60000; // 60K
+static DETAIL_ADDED_SIZE: u64 = 256;
+static DETAIL_MAX_LENGTH: u64 = 20000; // 20K
 
-// use std::ptr::copy_nonoverlapping;
-//
-// fn string_to_array(s: String, len: usize) -> [u8] {
-//     let data = s.as_bytes().to_vec();
-//     data.resize(len, 0);
-//
-//     let mut buf: [u8; 10] = [1, 128, 235, 222, 12, 0, 122, 12, 4, 10];
-//     println!(
-//         "buf: {buf:?} {} {}: {}",
-//         buf.len(),
-//         g.len(),
-//         g.len().min(buf.len())
-//     );
-//
-//     // buf.copy_from_slice(&g[..10]);
-//     unsafe {
-//         copy_nonoverlapping(
-//             s.as_ptr(),
-//             buf.as_mut_ptr(),
-//             s.len().min(buf.len()),
-//         )
-//     };
-//
-//     println!("s: {s:?}");
-//     println!("g: {g:?}");
-//     println!("buf: {buf:?}");
-//     println!(
-//         "new string: {:?}",
-//         String::from_utf8(buf.into()).unwrap_or_else(|e| {
-//             String::from_utf8(buf[..e.utf8_error().valid_up_to()].into())
-//                 .unwrap_or(String::new())
-//         }) // match String::from_utf8(buf.into()) {
-//            //     Ok(b) => b,
-//            //     Err(e) => {
-//            //         let l = e.utf8_error().valid_up_to();
-//            //         String::from_utf8(buf[..l].into()).unwrap()
-//            //         // println!("{e:?}");
-//            //         // "hi".to_owned()
-//            //     }
-//            // }
-//     );
-// }
+static FLAG_ALIVE: u64 = 1 << 0;
+static FLAG_EDITED: u64 = 1 << 1;
+static FLAG_PRIVATE: u64 = 1 << 2;
+
+static FLAG_DISH_AVAILABLE: u64 = 1 << 16;
+static FLAG_EATERY_CLOSED: u64 = 1 << 16;
 
 fn phone_validator(value: String) -> PyResult<String> {
     let result = value.chars().enumerate().find_map(|(i, c)| {
@@ -90,7 +57,7 @@ struct Session {
     info: SessionInfo,
     // if timestamp is 0, Session is Dead
     timestamp: u64,
-    token: [u8; 64]
+    token: [u8; 64],
 }
 
 #[model]
@@ -102,20 +69,30 @@ struct User {
     photo: Gene,
     #[str(validator = phone_validator)]
     phone: [u8; 12],
-    #[int(max=999)]
+    #[int(max = 999)]
     cc: u16,
     #[str]
     name: [u8; 50],
     sessions: [Session; 3],
-    mat: [[Gene; 3]; 3],
+    mat: [[Gene; 3]; 2],
 }
 
 #[pymodule]
 fn plutus(_py: Python, m: &PyModule) -> PyResult<()> {
-    // m.add_function(wrap_pyfunction!(sum_as_string, m)?)?;
     m.add_class::<SessionInfo>()?;
     m.add_class::<Session>()?;
     m.add_class::<User>()?;
     m.add_class::<Gene>()?;
+
+    m.add("PAGE_SIZE", PAGE_SIZE)?;
+    m.add("REQUEST_SIZE", REQUEST_SIZE)?;
+    m.add("DETAIL_ADDED_SIZE", DETAIL_ADDED_SIZE)?;
+    m.add("DETAIL_MAX_LENGTH", DETAIL_MAX_LENGTH)?;
+    m.add("FLAG_ALIVE", FLAG_ALIVE)?;
+    m.add("FLAG_EDITED", FLAG_EDITED)?;
+    m.add("FLAG_PRIVATE", FLAG_PRIVATE)?;
+    m.add("FLAG_DISH_AVAILABLE", FLAG_DISH_AVAILABLE)?;
+    m.add("FLAG_EATERY_CLOSED", FLAG_EATERY_CLOSED)?;
+
     Ok(())
 }

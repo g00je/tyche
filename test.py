@@ -1,3 +1,4 @@
+import json
 import random
 import string
 
@@ -11,8 +12,5 @@ def randstr():
     ))
 
 
-user = plutus.User()
-user.gene.id = 12
-# user.gene = plutus.Gene('2f' * 8)
-print(user)
-assert user.gene is user.gene
+user = plutus.User(b'A' * plutus.User.SIZE)
+print(json.dumps(user.dict(), indent=4))
