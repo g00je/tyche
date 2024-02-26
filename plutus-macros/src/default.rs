@@ -19,7 +19,9 @@ pub fn default(has_models: bool, members: &Vec<Member>) -> TokenStream {
                     ]);
                     s
                 }
-                MemberType::Number { .. } => quote! { 0 },
+                MemberType::Number { is_float, .. } => {
+                    if *is_float { quote!(0.0) } else { quote!(0) }
+                }
                 MemberType::Bytes { len } => quote!( [0; #len] ),
                 MemberType::Ipv4 => quote!([0, 0, 0, 0]),
                 MemberType::String { len, .. } => quote!( [0; #len] ),
@@ -45,8 +47,10 @@ pub fn default(has_models: bool, members: &Vec<Member>) -> TokenStream {
             MemberType::String { .. } => quote!(#ident: String::default(), ),
             MemberType::Model { ty, .. } => {
                 quote!(#ident: ::pyo3::Py::new(py, <#ty>::default()?)?, )
-            }
-            MemberType::Number { .. } => quote!(#ident: 0, ),
+            },
+            MemberType::Number { is_float, .. } => {
+                if *is_float { quote!(#ident: 0.0,) } else { quote!(#ident: 0,) }
+            },
             MemberType::Flag { .. } => quote!(),
         })
     });
@@ -54,7 +58,7 @@ pub fn default(has_models: bool, members: &Vec<Member>) -> TokenStream {
     let mut s = TokenStream::new();
     quote_into! { s += #{
         if has_models {
-            quote_into!{s += 
+            quote_into!{s +=
                 ::pyo3::Python::with_gil(|py| {
                     Ok(Self {
                         #{default_fields.for_each(|i| quote_into!(s += #i))}
@@ -62,7 +66,7 @@ pub fn default(has_models: bool, members: &Vec<Member>) -> TokenStream {
                 })
             }
         } else {
-            quote_into!{s += 
+            quote_into!{s +=
                 Ok(Self {
                     #{default_fields.for_each(|i| quote_into!(s += #i))}
                 })

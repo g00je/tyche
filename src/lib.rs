@@ -31,11 +31,148 @@ fn phone_validator(value: String) -> PyResult<String> {
     }
 }
 
-#[model(hex, a, b = 12)]
+#[model]
+struct ResponseHead {
+    status: u32,
+    size: u32,
+    elapsed: f64,
+}
+
+#[model(hex)]
 struct Gene {
     id: u32,
     pepper: u16,
     server: u16,
+}
+
+#[model]
+struct Detail {
+    flag: u64,
+    gene: Gene,
+    size: u32,
+    length: u32,
+    position: u64,
+}
+
+#[model]
+struct Record {
+    flag: u64,
+    gene: Gene,
+    detail: Gene,
+    checksum: [u8; 16],
+    server: u32,
+    width: u32,
+    height: u32,
+    size: u32,
+    ext: u8,
+    reserved: [u8; 3],
+    duration: f32,
+}
+
+#[model]
+struct Agent {
+    flag: u64,
+    gene: Gene,
+    user: Gene,
+    admin_perms: [u8; 64],
+}
+
+#[model]
+struct UserLoginArgs {
+    #[int(max = 999)]
+    cc: u16,
+    #[str(validator = phone_validator)]
+    phone: [u8; 12],
+    session: Session,
+}
+
+#[model]
+struct Duration {
+    #[int(max = 97)]
+    open: u8,
+    #[int(max = 97)]
+    close: u8,
+}
+
+#[model]
+struct Eatery {
+    flag: u64,
+    gene: Gene,
+
+    cc: u16,
+    tables: i16,
+    menu_count: u16,
+    review_count: u16,
+
+    latitude: f64,
+    longitude: f64,
+    menu: Gene,
+    review: Gene,
+    detail: Gene,
+    photos: [Gene; 7],
+    star_sum: u32,
+    theme: u32,
+
+    category: u8,
+    #[str]
+    phone: [u8; 12],
+    opening_hours: [[Duration; 4]; 7],
+    #[str]
+    name: [u8; 59],
+}
+
+#[model]
+struct Dish {
+    flag: u64,
+    ty: u8,
+    #[str]
+    name: [u8; 53],
+    currency: u16,
+    photos: [Gene; 4],
+    price: i64,
+}
+
+#[model]
+struct Review {
+    flag: u64,
+    target: Gene,       // eatery OR user
+    target_block: Gene, // eatery review OR user review. its not there own block
+    detail: Gene,
+    timestamp: u64,
+    star: u8,
+    target_index: u8,
+    #[str]
+    summary: [u8; 222],
+}
+
+#[model]
+struct ReviewData {
+    gene: Gene,
+    idx: u64,
+    review: Review,
+}
+
+#[model]
+struct BlockHeader {
+    flag: u64,
+    gene: Gene,
+    parent: Gene,
+    past: Gene,
+    next: Gene,
+    live: u8,
+    _reserved: [u8; 7],
+}
+
+#[model]
+struct ReviewBlock {
+    header: BlockHeader,
+    reviews: [Review; 32],
+}
+
+#[model]
+struct MenuBlock {
+    header: BlockHeader,
+    menu: [Dish; 32],
 }
 
 #[model]

@@ -9,7 +9,7 @@ pub fn getset(members: &Vec<Member>) -> TokenStream {
         let ident = &m.ident;
 
         Some(match &m.ty {
-            MemberType::Number { min, max, ty } => {
+            MemberType::Number { min, max, ty, .. } => {
                 let mut s = TokenStream::new();
 
                 quote_into! {s +=

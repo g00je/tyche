@@ -11,7 +11,7 @@ use syn::{LitInt, Type};
 #[derive(Debug)]
 pub enum MemberType {
     String { len: usize, validator: Option<Ident> },
-    Number { ty: Ident, min: Option<usize>, max: Option<usize> },
+    Number { ty: Ident, min: Option<usize>, max: Option<usize>, is_float: bool },
     Bytes { len: usize },
     Model { ty: Ident, cty: Ident },
     Array { ty: Box<MemberType>, len: usize },
@@ -224,19 +224,22 @@ fn parse_type(ty: &Type, attr: &Attr) -> MemberType {
             if let Attr::Flg = attr {
                 return MemberType::Flag { fl: ident.clone() };
             }
-            if ident.to_string().chars().next().unwrap().is_uppercase() {
+            let first_char = ident.to_string().chars().next().unwrap();
+            if first_char.is_uppercase() {
                 MemberType::Model {
                     ty: ident.clone(),
                     cty: format_ident!("C{}", ident),
                 }
             } else {
+                let is_float = first_char == 'f';
                 if let Attr::Int { min, max } = attr {
-                    MemberType::Number { ty: ident.clone(), min: *min, max: *max }
+                    MemberType::Number { ty: ident.clone(), min: *min, max: *max, is_float }
                 } else {
                     MemberType::Number {
                         ty: ident.clone(),
                         min: None,
                         max: None,
+                        is_float
                     }
                 }
             }

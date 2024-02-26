@@ -185,7 +185,6 @@ pub fn model(args: TokenStream, code: TokenStream) -> TokenStream {
             }
 
             fn __bytes__(&self) -> ::pyo3::PyResult<::std::borrow::Cow<[u8]>> {
-                let x = <#c_ident>::try_from(self.clone())?;
                 let data: Vec<u8> = <#c_ident>::try_from(self.clone())?.into();
                 Ok(data.to_owned().into())
             }
@@ -202,7 +201,7 @@ pub fn model(args: TokenStream, code: TokenStream) -> TokenStream {
             }
 
             #[classmethod]
-            fn batch(cls: &::pyo3::types::PyType, value: &::pyo3::PyAny) -> ::pyo3::PyResult<Vec<Self>> {
+            fn batch(_cls: &::pyo3::types::PyType, value: &::pyo3::PyAny) -> ::pyo3::PyResult<Vec<Self>> {
                 let result: Result<Vec<u8>, _> = value.extract::<Vec<u8>>().or_else(|_| {
                     match value.extract::<String>() {
                         Err(e) => Err(e),
