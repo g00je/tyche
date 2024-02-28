@@ -1,10 +1,10 @@
-use crate::parser::{Member, MemberType};
+use crate::parser::{Model, MemberType};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use quote_into::quote_into;
 
-pub fn getset(members: &Vec<Member>) -> TokenStream {
-    let gs = members.iter().map(|m| {
+pub fn getset(model: &Model) -> TokenStream {
+    let gs = model.members.iter().map(|m| {
         if m.private{return None}
         let ident = &m.ident;
 

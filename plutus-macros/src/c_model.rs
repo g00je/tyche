@@ -1,9 +1,11 @@
-use crate::parser::{Member, MemberType};
+use crate::parser::{MemberType, Model};
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
+use quote_into::quote_into;
 
-pub fn c_model(c_ident: &Ident, members: &Vec<Member>) -> TokenStream {
-    let c_fields = members.iter().map(|m| {
+pub fn c_model(model: &Model) -> TokenStream {
+    let c_ident = &model.c_ident;
+    let c_fields = model.members.iter().map(|m| {
         fn arr(ty: &MemberType) -> TokenStream {
             match ty {
                 MemberType::Array { ty, len } => {
@@ -15,7 +17,7 @@ pub fn c_model(c_ident: &Ident, members: &Vec<Member>) -> TokenStream {
                 MemberType::String { len, .. } => quote!( [u8; #len] ),
                 MemberType::Model { cty, .. } => quote!( #cty ),
                 MemberType::Flag { .. } => quote!(),
-                MemberType::Ipv4  => quote!([u8; 4]),
+                MemberType::Ipv4 => quote!([u8; 4]),
             }
         }
 
@@ -31,19 +33,40 @@ pub fn c_model(c_ident: &Ident, members: &Vec<Member>) -> TokenStream {
             MemberType::String { len, .. } => quote!(#ident: [u8; #len], ),
             MemberType::Model { cty, .. } => quote!(#ident: #cty, ),
             MemberType::Flag { .. } => quote!(),
-            MemberType::Ipv4  => quote!(#ident: [u8; 4],),
+            MemberType::Ipv4 => quote!(#ident: [u8; 4],),
         }
     });
 
-    quote!{
+    let mut s = TokenStream::new();
+    quote_into! {s +=
         #[repr(C)]
-        #[derive(Debug)]
+        #[derive(Debug, Default)]
         struct #c_ident {
-            #(#c_fields)*
+            #{for f in c_fields {
+                quote_into!(s += #f)
+            }}
         }
 
         impl #c_ident {
             const SIZE: usize = ::core::mem::size_of::<#c_ident>();
+
+            #{if model.hexable {
+            quote_into!{s +=
+            fn is_none(&self) -> bool {
+                let data: Vec<u8> = self.into();
+                data.iter().all(|x| *x == 0)
+            }}}}
+        }
+
+        impl ::std::convert::From<&#c_ident> for Vec<u8> {
+            fn from(value: &#c_ident) -> Self {
+                unsafe {
+                    ::core::slice::from_raw_parts(
+                        value as *const #c_ident as *const u8,
+                        <#c_ident>::SIZE
+                    ).iter().map(|x| *x).collect::<Vec<u8>>()
+                }
+            }
         }
 
         impl ::std::convert::From<#c_ident> for Vec<u8> {
@@ -70,6 +93,7 @@ pub fn c_model(c_ident: &Ident, members: &Vec<Member>) -> TokenStream {
                 }
             }
         }
-    }
-}
+    };
 
+    s
+}

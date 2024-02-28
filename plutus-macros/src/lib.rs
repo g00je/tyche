@@ -1,4 +1,3 @@
-
 use std::io::Write;
 
 use proc_macro::TokenStream;
@@ -13,14 +12,16 @@ mod dict;
 mod getset;
 mod mtc;
 mod parser;
-use parser::{MemberType, Model};
+mod pyi;
+use parser::MemberType;
 
 #[proc_macro_attribute]
 pub fn model(args: TokenStream, code: TokenStream) -> TokenStream {
     let item = parse_macro_input!(code as ItemStruct);
 
-    let Model { ident, c_ident, members, has_models, hexable } =
-        parser::parse(args.into(), item);
+    let item = parser::parse(args.into(), item);
+    let ident = &item.ident;
+    let c_ident = &item.c_ident;
     let verr = quote!(::pyo3::exceptions::PyValueError::new_err);
 
     // let string_from_utf8 = quote! {
@@ -30,7 +31,7 @@ pub fn model(args: TokenStream, code: TokenStream) -> TokenStream {
     //     })
     // };
 
-    let fields = members.iter().map(|m| {
+    let fields = item.members.iter().map(|m| {
         if m.private {
             return None;
         }
@@ -45,7 +46,13 @@ pub fn model(args: TokenStream, code: TokenStream) -> TokenStream {
                 MemberType::Bytes { len } => quote!( [u8; #len] ),
                 MemberType::Ipv4 => quote!([u8; 4]),
                 MemberType::String { len, .. } => quote!( [u8; #len] ),
-                MemberType::Model { ty, .. } => quote!( ::pyo3::Py<#ty> ),
+                MemberType::Model { ty, optional, .. } => {
+                    if *optional {
+                        quote!( Option<::pyo3::Py<#ty>> )
+                    } else {
+                        quote!( ::pyo3::Py<#ty> )
+                    }
+                }
                 MemberType::Flag { .. } => quote!(),
             }
         }
@@ -69,20 +76,30 @@ pub fn model(args: TokenStream, code: TokenStream) -> TokenStream {
                 #[pyo3(get)]
                 #ident: String,
             },
-            MemberType::Model { ty, .. } => quote! {
-                #[pyo3(get, set)]
-                #ident: ::pyo3::Py<#ty>,
-            },
+            MemberType::Model { ty, optional, .. } => {
+                if *optional {
+                    quote! {
+                        #[pyo3(get, set)]
+                        #ident: Option<::pyo3::Py<#ty>>,
+                    }
+                } else {
+                    quote! {
+                        #[pyo3(get, set)]
+                        #ident: ::pyo3::Py<#ty>,
+                    }
+                }
+            }
             MemberType::Flag { .. } => quote!(),
         })
     });
 
-    let dict_method = dict::dict_method(hexable, &c_ident, &members);
-    let default_tokens = default::default(has_models, &members);
-    let getsets = getset::getset(&members);
-    let c_struct = c_model::c_model(&c_ident, &members);
-    let mtc_tokens = mtc::mtc(has_models, &members);
-    let ctm_tokens = ctm::ctm(has_models, &members);
+    let dict_method = dict::dict_method(&item);
+    let default_tokens = default::default(&item);
+    let getsets = getset::getset(&item);
+    let c_struct = c_model::c_model(&item);
+    let mtc_tokens = mtc::mtc(&item);
+    let ctm_tokens = ctm::ctm(&item);
+    let pyi_tokens = pyi::pyi(&item);
 
     let output = quote! {
         #c_struct
@@ -101,10 +118,10 @@ pub fn model(args: TokenStream, code: TokenStream) -> TokenStream {
             #(#fields)*
         }
 
-        impl ::core::convert::TryFrom<#c_ident> for #ident {
+        impl ::core::convert::TryFrom<&#c_ident> for #ident {
             type Error = ::pyo3::PyErr;
 
-            fn try_from(value: #c_ident) -> Result<Self, Self::Error> {
+            fn try_from(value: &#c_ident) -> Result<Self, Self::Error> {
                 #ctm_tokens
             }
         }
@@ -116,7 +133,7 @@ pub fn model(args: TokenStream, code: TokenStream) -> TokenStream {
                 let value: Result<#c_ident, _> = value.try_into();
                 match value {
                     Err(_) => Err(#verr("invalid value to convert")),
-                    Ok(value) => Ok(value.try_into()?)
+                    Ok(value) => Ok((&value).try_into()?)
                 }
             }
         }
@@ -125,12 +142,14 @@ pub fn model(args: TokenStream, code: TokenStream) -> TokenStream {
             fn default() -> ::pyo3::PyResult<Self> {
                 #default_tokens
             }
+
+            pub const PYI: &'static str = #pyi_tokens;
         }
 
         #[::pyo3::pymethods]
         impl #ident {
             #[classattr]
-            const SIZE: u64 = <#c_ident>::SIZE as u64;
+            pub const SIZE: u64 = <#c_ident>::SIZE as u64;
 
             #[new]
             fn py_new(value: Option<&::pyo3::PyAny>) -> ::pyo3::PyResult<Self> {
@@ -252,14 +271,14 @@ pub fn model(args: TokenStream, code: TokenStream) -> TokenStream {
     };
 
     // println!("\n\n{output}\n\n");
-    // let mut p = ::std::process::Command::new("rustfmt")
-    //     .stdin(::std::process::Stdio::piped())
-    //     // .stdout(::std::process::Stdio::piped())
-    //     // .stderr(::std::process::Stdio::piped())
-    //     .spawn()
-    //     .unwrap();
-    // let mut stdin = p.stdin.take().unwrap();
-    // stdin.write_all(output.to_string().as_bytes()).unwrap();
+    let mut p = ::std::process::Command::new("rustfmt")
+        .stdin(::std::process::Stdio::piped())
+        // .stdout(::std::process::Stdio::piped())
+        // .stderr(::std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut stdin = p.stdin.take().unwrap();
+    stdin.write_all(output.to_string().as_bytes()).unwrap();
 
     // let mut buf = String::new();
     // stdout.read_to_string(&mut buf).unwrap();

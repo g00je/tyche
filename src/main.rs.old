@@ -1,0 +1,36 @@
+use std::{fs::{create_dir, File}, io::Write};
+
+fn write_pyi() -> std::io::Result<()> {
+    let _ = create_dir("pkg/plutus");
+    File::create("pkg/plutus/py.typed")?;
+
+    let mut fd = File::create("pkg/plutus/__init__.py")?;
+    write!(fd, "\nfrom plutus_internal import *\n\n")?;
+
+    let mut fd = File::create("pkg/plutus/__init__.pyi")?;
+
+    write!(fd, "\nimport plutus\n\n")?;
+    write!(fd, "{}\n\n", plutus_internal::ResponseHead::get_pyi())?;
+    write!(fd, "{}\n\n", plutus_internal::Gene::get_pyi())?;
+    write!(fd, "{}\n\n", plutus_internal::Detail::get_pyi())?;
+    write!(fd, "{}\n\n", plutus_internal::Record::get_pyi())?;
+    write!(fd, "{}\n\n", plutus_internal::Agent::get_pyi())?;
+    write!(fd, "{}\n\n", plutus_internal::UserLoginArgs::get_pyi())?;
+    write!(fd, "{}\n\n", plutus_internal::Duration::get_pyi())?;
+    write!(fd, "{}\n\n", plutus_internal::Eatery::get_pyi())?;
+    write!(fd, "{}\n\n", plutus_internal::Dish::get_pyi())?;
+    write!(fd, "{}\n\n", plutus_internal::Review::get_pyi())?;
+    write!(fd, "{}\n\n", plutus_internal::ReviewData::get_pyi())?;
+    write!(fd, "{}\n\n", plutus_internal::BlockHeader::get_pyi())?;
+    write!(fd, "{}\n\n", plutus_internal::ReviewBlock::get_pyi())?;
+    write!(fd, "{}\n\n", plutus_internal::MenuBlock::get_pyi())?;
+    write!(fd, "{}\n\n", plutus_internal::SessionInfo::get_pyi())?;
+    write!(fd, "{}\n\n", plutus_internal::Session::get_pyi())?;
+    write!(fd, "{}\n\n", plutus_internal::User::get_pyi())?;
+
+    Ok(())
+}
+
+fn main() {
+    write_pyi().unwrap();
+}

@@ -5,9 +5,12 @@ version = "0.1.0"
 
 
 [lib]
-name = "plutus"
+name = "plutus_internal"
 crate-type = ["cdylib"]
 
 [dependencies]
 plutus-macros = { path = "plutus-macros" }
-pyo3 = "0"
+pyo3 = { version = "0.20.3", features = [] }
+
+[features]
+extension-module = ["pyo3/extension-module"]

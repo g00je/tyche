@@ -1,10 +1,11 @@
-use crate::parser::{Member, MemberType};
+use crate::parser::{Model, MemberType};
 use proc_macro2::{TokenStream, Ident};
 use quote::quote;
 
-pub fn dict_method(hexable: bool, c_ident: &Ident, members: &Vec<Member>) -> TokenStream {
+pub fn dict_method(model: &Model) -> TokenStream {
+    let c_ident = &model.c_ident;
 
-    if hexable {
+    if model.hexable {
         return quote! {
             fn dict(&self) -> ::pyo3::PyResult<::std::string::String> {
                 let data: Vec<u8> = <#c_ident>::try_from(self.clone())?.into();
@@ -17,7 +18,7 @@ pub fn dict_method(hexable: bool, c_ident: &Ident, members: &Vec<Member>) -> Tok
     }
 
 
-    let dict_fields = members.iter().map(|m| {
+    let dict_fields = model.members.iter().map(|m| {
         if m.private {return None}
         let key = m.ident.to_string();
         let ident = &m.ident;
@@ -49,9 +50,19 @@ pub fn dict_method(hexable: bool, c_ident: &Ident, members: &Vec<Member>) -> Tok
                 MemberType::Number { .. } => Some(quote! {
                     self.#ident #(#index)*,
                 }),
-                MemberType::Model { .. } => Some(quote! {
-                    self.#ident #(#index)* .try_borrow(py)?.dict()?,
-                }),
+                MemberType::Model { optional, .. } => {
+                    if *optional {
+                        Some(quote! {
+                            if let Some(v) = & self.#ident #(#index)* {
+                                Some(v.try_borrow(py)?.dict()?)
+                            } else {None},
+                            //self.#ident #(#index)* .try_borrow(py)?.dict()?,
+                        })
+                    } else {
+                        Some(quote! {
+                            self.#ident #(#index)* .try_borrow(py)?.dict()?,
+                        })
+                    }},
                 MemberType::String { .. } => Some(quote!{
                     self.#ident #(#index)* .clone(),
                 }),
@@ -88,9 +99,21 @@ pub fn dict_method(hexable: bool, c_ident: &Ident, members: &Vec<Member>) -> Tok
             MemberType::Number { .. } => Some(quote! {
                 dict.set_item(#key, self.#ident)?; 
             }),
-            MemberType::Model {..} => Some(quote! {
-                dict.set_item(#key, self.#ident.try_borrow(py)?.dict()?)?; 
-            }),
+            MemberType::Model {optional, ..} => {
+                if *optional {
+                    Some(quote! {
+                        dict.set_item(#key, 
+                            if let Some(v) = & self.#ident{
+                                Some(v.try_borrow(py)?.dict()?)
+                            } else {None}
+                        )?; 
+                    })
+                } else {
+                    Some(quote! {
+                        dict.set_item(#key, self.#ident.try_borrow(py)?.dict()?)?; 
+                    })
+                }
+            },
             MemberType::String {..} => Some(quote!{
                 dict.set_item(#key, self.#ident.clone())?; 
             }),

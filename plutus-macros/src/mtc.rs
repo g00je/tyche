@@ -1,9 +1,9 @@
-use crate::parser::{Member, MemberType};
+use crate::parser::{Model, MemberType};
 use proc_macro2::TokenStream;
 use quote::quote;
 
-pub fn mtc(has_models: bool, members: &Vec<Member>) -> TokenStream {
-    let mtc_fields = members.iter().map(|m| {
+pub fn mtc(model: &Model) -> TokenStream {
+    let mtc_fields = model.members.iter().map(|m| {
         let ident = &m.ident;
 
         if m.private {
@@ -24,11 +24,25 @@ pub fn mtc(has_models: bool, members: &Vec<Member>) -> TokenStream {
                     )),
                     None => None,
                 },
-                MemberType::Model { .. } => Some((
-                    quote!{x.try_borrow(py)?.clone().try_into()},
-                    quote!{ if x.is_err() {Some(())} else {None} },
-                    quote!{x.unwrap()}
-                )),
+                MemberType::Model { optional, cty, .. } => {
+                    if *optional {
+                        Some((
+                            quote!{
+                                if let Some(v) = x {
+                                    v.try_borrow(py)?.clone().try_into()
+                                } else {Ok(<#cty>::default())}
+                            },
+                            quote!{ if x.is_err() {Some(())} else {None} },
+                            quote!{x.unwrap()}
+                        ))
+                    } else {
+                        Some((
+                            quote!{x.try_borrow(py)?.clone().try_into()},
+                            quote!{ if x.is_err() {Some(())} else {None} },
+                            quote!{x.unwrap()}
+                        ))
+                    }
+                },
                 _ => None,
             }
         }
@@ -55,15 +69,23 @@ pub fn mtc(has_models: bool, members: &Vec<Member>) -> TokenStream {
                     data.as_slice().try_into().unwrap()
                 },
             },
-            MemberType::Model { .. } => {
-                quote!(#ident: value.#ident.try_borrow(py)?.clone().try_into()?, )
+            MemberType::Model { optional, cty, .. } => {
+                if *optional {
+                    quote!{#ident: if let Some(v) = value.#ident {
+                        v.try_borrow(py)?.clone().try_into()?} else {
+                            <#cty>::default()
+                        },
+                    }
+                } else {
+                    quote!(#ident: value.#ident.try_borrow(py)?.clone().try_into()?, )
+                }
             }
             MemberType::Number { .. } => quote!(#ident: value.#ident, ),
             MemberType::Flag { .. } => quote!(),
         }
     });
 
-    let mtc_tokens = if has_models {
+    let mtc_tokens = if model.has_models {
         quote! {
             ::pyo3::Python::with_gil(|py| {
                 Ok(Self {

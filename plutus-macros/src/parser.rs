@@ -3,17 +3,16 @@ use quote::format_ident;
 
 use syn::{
     punctuated::Punctuated, token::Brace, Attribute, Expr, Field, Fields,
-    FieldsNamed, ItemStruct, Lit, Meta,
+    FieldsNamed, ItemStruct, Lit, Meta, LitInt, Type, PathArguments,
+    GenericArgument
 };
-
-use syn::{LitInt, Type};
 
 #[derive(Debug)]
 pub enum MemberType {
     String { len: usize, validator: Option<Ident> },
     Number { ty: Ident, min: Option<usize>, max: Option<usize>, is_float: bool },
     Bytes { len: usize },
-    Model { ty: Ident, cty: Ident },
+    Model { ty: Ident, cty: Ident, optional: bool },
     Array { ty: Box<MemberType>, len: usize },
     Flag { fl: Ident },
     Ipv4,
@@ -220,7 +219,26 @@ fn parse_attrs(attrs: &Vec<Attribute>) -> Attr {
 fn parse_type(ty: &Type, attr: &Attr) -> MemberType {
     match &ty {
         Type::Path(ty) => {
-            let ident = &ty.path.segments[0].ident;
+            let seg = &ty.path.segments[0];
+            let ident = &seg.ident;
+
+            if ident.to_string() == "Option" {
+                if let PathArguments::AngleBracketed(ab) = &seg.arguments {
+                    if let GenericArgument::Type(ty) = &ab.args[0] {
+                        let mt = parse_type(ty, attr);
+                        if let MemberType::Model { ty, cty, .. } = mt {
+                            return MemberType::Model { ty, cty, optional: true };
+                        } else {
+                            return mt;
+                        }
+                    } else {
+                        panic!("invalid generic arg");
+                    }
+                } else {
+                    panic!("invalid args for Option");
+                }
+            }
+
             if let Attr::Flg = attr {
                 return MemberType::Flag { fl: ident.clone() };
             }
@@ -229,6 +247,7 @@ fn parse_type(ty: &Type, attr: &Attr) -> MemberType {
                 MemberType::Model {
                     ty: ident.clone(),
                     cty: format_ident!("C{}", ident),
+                    optional: false
                 }
             } else {
                 let is_float = first_char == 'f';

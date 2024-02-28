@@ -15,6 +15,6 @@ def randstr():
 data = b'A' * plutus.User.SIZE
 
 genes = plutus.Gene.batch(b'g' * plutus.Gene.SIZE * 10)
-print(genes, len(genes))
+print(genes[0].hex(), len(genes))
 
 # print(json.dumps(user.dict(), indent=4))
