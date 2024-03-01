@@ -57,7 +57,10 @@ pub fn pydantic(model: &Model) -> TokenStream {
                     len * 2,
                     len * 2
                 ),
-                MemberType::Model { ty, .. } => ty.to_string() + "Model",
+                MemberType::Model { ty, optional, .. } => format!(
+                    "{ty}Model{}",
+                    if *optional { " | None" } else { "" }
+                ),
                 MemberType::Ipv4 => "str".to_string(),
                 MemberType::Flag { .. } => "bool".to_string(),
             }
@@ -104,9 +107,11 @@ pub fn pydantic(model: &Model) -> TokenStream {
                 len * 2,
                 len * 2
             )),
-            MemberType::Model { ty, .. } => {
-                Some(format!("{}: {ty}Model", m.ident))
-            }
+            MemberType::Model { ty, optional, .. } => Some(format!(
+                "{}: {ty}Model{}",
+                m.ident,
+                if *optional { " | None" } else { "" }
+            )),
             MemberType::Ipv4 => Some(format!("{}: str", m.ident)),
             MemberType::Flag { .. } => Some(format!("{}: bool", m.ident)),
         }

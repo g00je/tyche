@@ -77,7 +77,6 @@ struct Agent {
     admin_perms: [u8; 64],
 }
 
-
 #[model]
 struct Duration {
     #[int(max = 97)]
@@ -195,9 +194,9 @@ struct Session {
 struct User {
     flag: u64,
     gene: Gene,
-    agent: [Option<Gene>; 3],
-    review: Gene,
-    photo: Gene,
+    agent: Option<Gene>,
+    review: Option<Gene>,
+    photo: Option<Gene>,
     #[str(validator = phone_validator)]
     phone: [u8; 12],
     #[int(max = 999)]
@@ -216,23 +215,23 @@ struct UserLoginArgs {
     session: Session,
 }
 
-// #[cfg(test)]
-// mod tests {
-//     #[test]
-//     fn test_sizes() {
-//         assert!(crate::Gene::SIZE == 8);
-//         assert!(crate::ResponseHead::SIZE == 16);
-//         assert!(crate::Detail::SIZE == 32);
-//         assert!(crate::Record::SIZE == 64);
-//         assert!(crate::Session::SIZE == 88);
-//         assert!(crate::User::SIZE == 368);
-//         assert!(crate::Agent::SIZE == 88);
-//         assert!(crate::Eatery::SIZE == 256);
-//         assert!(crate::Dish::SIZE == 104);
-//         assert!(crate::Review::SIZE == 264);
-//         assert!(crate::ReviewData::SIZE == 16 + 264);
-//     }
-// }
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_sizes() {
+        assert!(crate::Gene::SIZE == 8);
+        assert!(crate::ResponseHead::SIZE == 16);
+        assert!(crate::Detail::SIZE == 32);
+        assert!(crate::Record::SIZE == 64);
+        assert!(crate::Session::SIZE == 88);
+        assert!(crate::User::SIZE == 368);
+        assert!(crate::Agent::SIZE == 88);
+        assert!(crate::Eatery::SIZE == 256);
+        assert!(crate::Dish::SIZE == 104);
+        assert!(crate::Review::SIZE == 264);
+        assert!(crate::ReviewData::SIZE == 16 + 264);
+    }
+}
 
 #[pymodule]
 fn plutus_internal(_py: Python, m: &PyModule) -> PyResult<()> {
@@ -253,8 +252,6 @@ fn plutus_internal(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<SessionInfo>()?;
     m.add_class::<Session>()?;
     m.add_class::<User>()?;
-
-
 
     m.add("PAGE_SIZE", PAGE_SIZE)?;
     m.add("REQUEST_SIZE", REQUEST_SIZE)?;
