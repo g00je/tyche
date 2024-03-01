@@ -1,9 +1,12 @@
 use crate::parser::{Model, MemberType};
-use proc_macro2::Ident;
 
 pub fn pyi(model: &Model) -> String {
     let ident = &model.ident;
     let x = model.members.iter().map(|m| {
+        if m.private {
+            return None;
+        }
+
         fn arr(ty: &MemberType) -> String {
             match ty {
                 MemberType::Array { ty, .. } => {

@@ -14,205 +14,206 @@ static FLAG_PRIVATE: u64 = 1 << 2;
 static FLAG_DISH_AVAILABLE: u64 = 1 << 16;
 static FLAG_EATERY_CLOSED: u64 = 1 << 16;
 
-// fn phone_validator(value: String) -> PyResult<String> {
-//     let result = value.chars().enumerate().find_map(|(i, c)| {
-//         if c.is_ascii_digit() {
-//             return None;
-//         }
-//
-//         Some(PyValueError::new_err(format!(
-//             "invalid phone number char: '{c}' at {i}"
-//         )))
-//     });
-//
-//     match result {
-//         Some(err) => Err(err),
-//         None => Ok(value),
-//     }
-// }
-//
-// #[model]
-// struct ResponseHead {
-//     status: u32,
-//     size: u32,
-//     elapsed: f64,
-// }
-//
+fn phone_validator(value: String) -> PyResult<String> {
+    let result = value.chars().enumerate().find_map(|(i, c)| {
+        if c.is_ascii_digit() {
+            return None;
+        }
+
+        Some(PyValueError::new_err(format!(
+            "invalid phone number char: '{c}' at {i}"
+        )))
+    });
+
+    match result {
+        Some(err) => Err(err),
+        None => Ok(value),
+    }
+}
+
+#[model]
+struct ResponseHead {
+    status: u32,
+    size: u32,
+    elapsed: f64,
+}
+
 #[model(hex)]
 struct Gene {
     id: u32,
     pepper: u16,
     server: u16,
 }
-//
-// #[model]
-// struct Detail {
-//     flag: u64,
-//     gene: Gene,
-//     size: u32,
-//     length: u32,
-//     position: u64,
-// }
-//
-// #[model]
-// struct Record {
-//     flag: u64,
-//     gene: Gene,
-//     detail: Gene,
-//     checksum: [u8; 16],
-//     server: u32,
-//     width: u32,
-//     height: u32,
-//     size: u32,
-//     ext: u8,
-//     reserved: [u8; 3],
-//     duration: f32,
-// }
-//
-// #[model]
-// struct Agent {
-//     flag: u64,
-//     gene: Gene,
-//     user: Gene,
-//     admin_perms: [u8; 64],
-// }
-//
-// #[model]
-// struct UserLoginArgs {
-//     #[int(max = 999)]
-//     cc: u16,
-//     #[str(validator = phone_validator)]
-//     phone: [u8; 12],
-//     session: Session,
-// }
-//
-// #[model]
-// struct Duration {
-//     #[int(max = 97)]
-//     open: u8,
-//     #[int(max = 97)]
-//     close: u8,
-// }
-//
-// #[model]
-// struct Eatery {
-//     flag: u64,
-//     gene: Gene,
-//
-//     #[int(max = 999)]
-//     cc: u16,
-//     tables: i16,
-//     menu_count: u16,
-//     review_count: u16,
-//
-//     latitude: f64,
-//     longitude: f64,
-//     menu: Gene,
-//     review: Gene,
-//     detail: Gene,
-//     photos: [Gene; 7],
-//     star_sum: u32,
-//     theme: u32,
-//
-//     category: u8,
-//     #[str]
-//     phone: [u8; 12],
-//     opening_hours: [[Duration; 4]; 7],
-//     #[str]
-//     name: [u8; 59],
-// }
-//
-// #[model]
-// struct Dish {
-//     flag: u64,
-//     ty: u8,
-//     #[str]
-//     name: [u8; 53],
-//     currency: u16,
-//     photos: [Gene; 4],
-//     price: i64,
-// }
-//
-// #[model]
-// struct Review {
-//     flag: u64,
-//     target: Gene,       // eatery OR user
-//     target_block: Gene, // eatery review OR user review. its not there own block
-//     detail: Gene,
-//     timestamp: u64,
-//     #[int(max = 5)]
-//     star: u8,
-//     target_index: u8,
-//     #[str]
-//     summary: [u8; 222],
-// }
-//
-// #[model]
-// struct ReviewData {
-//     gene: Gene,
-//     idx: u64,
-//     review: Review,
-// }
-//
-// #[model]
-// struct BlockHeader {
-//     flag: u64,
-//     gene: Gene,
-//     parent: Gene,
-//     past: Gene,
-//     next: Gene,
-//     live: u8,
-//     _reserved: [u8; 7],
-// }
-//
-// #[model]
-// struct ReviewBlock {
-//     header: BlockHeader,
-//     reviews: [Review; 32],
-// }
-//
-// #[model]
-// struct MenuBlock {
-//     header: BlockHeader,
-//     menu: [Dish; 32],
-// }
-//
-// #[model]
-// struct SessionInfo {
-//     client: u8,
-//     os: u8,
-//     browser: u8,
-//     device: u8,
-//     client_version: u16,
-//     os_version: u16,
-//     browser_version: u16,
-//     _reserved: u16,
-// }
-//
-// #[model]
-// struct Session {
-//     #[ipv4]
-//     ip: [u8; 4],
-//     info: SessionInfo,
-//     // if timestamp is 0, Session is Dead
-//     timestamp: u64,
-//     token: [u8; 64],
-// }
+
+#[model]
+struct Detail {
+    flag: u64,
+    gene: Gene,
+    size: u32,
+    length: u32,
+    position: u64,
+}
+
+#[model]
+struct Record {
+    flag: u64,
+    gene: Gene,
+    detail: Gene,
+    checksum: [u8; 16],
+    server: u32,
+    width: u32,
+    height: u32,
+    size: u32,
+    ext: u8,
+    _reserved: [u8; 3],
+    duration: f32,
+}
+
+#[model]
+struct Agent {
+    flag: u64,
+    gene: Gene,
+    user: Gene,
+    admin_perms: [u8; 64],
+}
+
+
+#[model]
+struct Duration {
+    #[int(max = 97)]
+    open: u8,
+    #[int(max = 97)]
+    close: u8,
+}
+
+#[model]
+struct Eatery {
+    flag: u64,
+    gene: Gene,
+
+    #[int(max = 999)]
+    cc: u16,
+    tables: i16,
+    menu_count: u16,
+    review_count: u16,
+
+    latitude: f64,
+    longitude: f64,
+    menu: Gene,
+    review: Gene,
+    detail: Gene,
+    photos: [Gene; 7],
+    star_sum: u32,
+    theme: u32,
+
+    category: u8,
+    #[str]
+    phone: [u8; 12],
+    opening_hours: [[Duration; 4]; 7],
+    #[str]
+    name: [u8; 59],
+}
+
+#[model]
+struct Dish {
+    flag: u64,
+    ty: u8,
+    #[str]
+    name: [u8; 53],
+    currency: u16,
+    photos: [Gene; 4],
+    price: i64,
+}
+
+#[model]
+struct Review {
+    flag: u64,
+    target: Gene,       // eatery OR user
+    target_block: Gene, // eatery review OR user review. its not there own block
+    detail: Gene,
+    timestamp: u64,
+    #[int(max = 5)]
+    star: u8,
+    target_index: u8,
+    #[str]
+    summary: [u8; 222],
+}
+
+#[model]
+struct ReviewData {
+    gene: Gene,
+    idx: u64,
+    review: Review,
+}
+
+#[model]
+struct BlockHeader {
+    flag: u64,
+    gene: Gene,
+    parent: Gene,
+    past: Gene,
+    next: Gene,
+    live: u8,
+    _reserved: [u8; 7],
+}
+
+#[model]
+struct ReviewBlock {
+    header: BlockHeader,
+    reviews: [Review; 32],
+}
+
+#[model]
+struct MenuBlock {
+    header: BlockHeader,
+    menu: [Dish; 32],
+}
+
+#[model]
+struct SessionInfo {
+    client: u8,
+    os: u8,
+    browser: u8,
+    device: u8,
+    client_version: u16,
+    os_version: u16,
+    browser_version: u16,
+    _reserved: u16,
+}
+
+#[model]
+struct Session {
+    #[ipv4]
+    ip: [u8; 4],
+    info: SessionInfo,
+    // if timestamp is 0, Session is Dead
+    timestamp: u64,
+    token: [u8; 64],
+}
 
 #[model]
 struct User {
-    // flag: u64,
+    flag: u64,
     gene: Gene,
     agent: [Option<Gene>; 3],
-    // review: Gene,
-    // photo: Gene,
-    // #[str(validator = phone_validator)]
-    // phone: [u8; 12],
-    // #[int(max = 999)]
-    // cc: u16,
-    // #[str]
-    // name: [u8; 50],
-    // sessions: [Session; 3],
+    review: Gene,
+    photo: Gene,
+    #[str(validator = phone_validator)]
+    phone: [u8; 12],
+    #[int(max = 999)]
+    cc: u16,
+    #[str]
+    name: [u8; 50],
+    sessions: [Session; 3],
+}
+
+#[model]
+struct UserLoginArgs {
+    #[int(max = 999)]
+    cc: u16,
+    #[str(validator = phone_validator)]
+    phone: [u8; 12],
+    session: Session,
 }
 
 // #[cfg(test)]
@@ -235,22 +236,22 @@ struct User {
 
 #[pymodule]
 fn plutus_internal(_py: Python, m: &PyModule) -> PyResult<()> {
-    // m.add_class::<ResponseHead>()?;
-    // m.add_class::<Gene>()?;
-    // m.add_class::<Detail>()?;
-    // m.add_class::<Record>()?;
-    // m.add_class::<Agent>()?;
-    // m.add_class::<UserLoginArgs>()?;
-    // m.add_class::<Duration>()?;
-    // m.add_class::<Eatery>()?;
-    // m.add_class::<Dish>()?;
-    // m.add_class::<Review>()?;
-    // m.add_class::<ReviewData>()?;
-    // m.add_class::<BlockHeader>()?;
-    // m.add_class::<ReviewBlock>()?;
-    // m.add_class::<MenuBlock>()?;
-    // m.add_class::<SessionInfo>()?;
-    // m.add_class::<Session>()?;
+    m.add_class::<ResponseHead>()?;
+    m.add_class::<Gene>()?;
+    m.add_class::<Detail>()?;
+    m.add_class::<Record>()?;
+    m.add_class::<Agent>()?;
+    m.add_class::<UserLoginArgs>()?;
+    m.add_class::<Duration>()?;
+    m.add_class::<Eatery>()?;
+    m.add_class::<Dish>()?;
+    m.add_class::<Review>()?;
+    m.add_class::<ReviewData>()?;
+    m.add_class::<BlockHeader>()?;
+    m.add_class::<ReviewBlock>()?;
+    m.add_class::<MenuBlock>()?;
+    m.add_class::<SessionInfo>()?;
+    m.add_class::<Session>()?;
     m.add_class::<User>()?;
 
 

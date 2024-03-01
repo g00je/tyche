@@ -6,7 +6,7 @@ version = "0.1.0"
 
 [lib]
 name = "plutus_internal"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "lib"]
 
 [dependencies]
 plutus-macros = { path = "plutus-macros" }

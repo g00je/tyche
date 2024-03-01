@@ -13,6 +13,7 @@ mod getset;
 mod mtc;
 mod parser;
 mod pyi;
+mod pydantic;
 use parser::MemberType;
 
 #[proc_macro_attribute]
@@ -100,6 +101,7 @@ pub fn model(args: TokenStream, code: TokenStream) -> TokenStream {
     let mtc_tokens = mtc::mtc(&item);
     let ctm_tokens = ctm::ctm(&item);
     let pyi_tokens = pyi::pyi(&item);
+    let pydantic_tokens = pydantic::pydantic(&item);
 
     let output = quote! {
         #c_struct
@@ -144,6 +146,9 @@ pub fn model(args: TokenStream, code: TokenStream) -> TokenStream {
             }
 
             pub const PYI: &'static str = #pyi_tokens;
+            pub fn get_pydantic() -> String {
+                #pydantic_tokens
+            }
         }
 
         #[::pyo3::pymethods]
@@ -271,14 +276,14 @@ pub fn model(args: TokenStream, code: TokenStream) -> TokenStream {
     };
 
     // println!("\n\n{output}\n\n");
-    let mut p = ::std::process::Command::new("rustfmt")
-        .stdin(::std::process::Stdio::piped())
-        // .stdout(::std::process::Stdio::piped())
-        // .stderr(::std::process::Stdio::piped())
-        .spawn()
-        .unwrap();
-    let mut stdin = p.stdin.take().unwrap();
-    stdin.write_all(output.to_string().as_bytes()).unwrap();
+    // let mut p = ::std::process::Command::new("rustfmt")
+    //     .stdin(::std::process::Stdio::piped())
+    //     // .stdout(::std::process::Stdio::piped())
+    //     // .stderr(::std::process::Stdio::piped())
+    //     .spawn()
+    //     .unwrap();
+    // let mut stdin = p.stdin.take().unwrap();
+    // stdin.write_all(output.to_string().as_bytes()).unwrap();
 
     // let mut buf = String::new();
     // stdout.read_to_string(&mut buf).unwrap();
