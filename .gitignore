@@ -240,3 +240,4 @@ docs/_build/
 .python-version
 
 plutus/
+pkg/models.h
