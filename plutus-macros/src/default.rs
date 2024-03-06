@@ -5,70 +5,48 @@ use quote_into::quote_into;
 
 pub fn default(model: &Model) -> TokenStream {
     let default_fields = model.members.iter().map(|m| {
-        if m.private {
-            return None;
-        }
+        if m.private {return None;}
 
-        fn arr(ty: &MemberType) -> TokenStream {
-            match ty {
-                MemberType::Array { ty, len } => {
-                    let ty = arr(&ty);
-                    let mut s = TokenStream::new();
-                    quote_into!(s += [
-                        #{(0..*len).for_each(|_| quote_into!(s += #ty,))}
-                    ]);
-                    s
-                }
-                MemberType::Number { is_float, .. } => {
-                    if *is_float {
-                        quote!(0.0)
-                    } else {
-                        quote!(0)
-                    }
-                }
-                MemberType::Bytes { len } => quote!( [0; #len] ),
-                MemberType::Ipv4 => quote!([0, 0, 0, 0]),
-                MemberType::String { len, .. } => quote!( [0; #len] ),
-                MemberType::Model { ty, optional, .. } => {
-                    if *optional {
-                        quote!(None)
-                    } else {
-                        quote!( ::pyo3::Py::new(py, <#ty>::default()?)? )
-                    }
-                }
-                MemberType::Flag { .. } => quote!(),
-            }
-        }
+        let array = |ty: TokenStream| {
+            let arr = match &m.arr {
+                Some(a) => a,
+                None => return ty,
+            };
+
+            arr.iter().rev().fold(ty, |a, i| {
+                let mut s = TokenStream::new();
+                quote_into!(s += [#{
+                    for _ in 0..*i { quote_into!(s += #a,) }
+                }]);
+                s
+            })
+        };
 
         let ident = &m.ident;
-        Some(match &m.ty {
-            MemberType::Array { ty, len } => {
-                let ty = arr(ty);
-                let mut s = TokenStream::new();
-                quote_into!(s += #ident: [
-                    #{(0..*len).for_each(|_| quote_into!(s += #ty,))}
-                ],);
-                s
-            }
-            MemberType::Bytes { len } => quote!(#ident: [0; #len], ),
-            MemberType::Ipv4 => quote!(#ident: [0, 0, 0, 0],),
-            MemberType::String { .. } => quote!(#ident: String::default(), ),
-            MemberType::Model { ty, optional, .. } => {
+        let mut s = TokenStream::new();
+
+        let v = match &m.ty {
+            MemberType::Bytes { len } => Some(quote!([0; #len])),
+            MemberType::Ipv4 => Some(quote!([0, 0, 0, 0])),
+            MemberType::String { .. } => Some(quote!(String::default())),
+            MemberType::Model { ty, optional, .. } => Some(
                 if *optional {
-                    quote!(#ident: None,)
+                    quote!(None)
                 } else {
-                    quote!(#ident: ::pyo3::Py::new(py, <#ty>::default()?)?, )
+                    quote!(::pyo3::Py::new(py, <#ty>::default()?)?)
                 }
-            }
-            MemberType::Number { is_float, .. } => {
-                if *is_float {
-                    quote!(#ident: 0.0,)
-                } else {
-                    quote!(#ident: 0,)
-                }
-            }
-            MemberType::Flag { .. } => quote!(),
-        })
+            ),
+            MemberType::Number { is_float, .. } => Some(
+                if *is_float { quote!(0.0) } else { quote!(0) }
+            ),
+            MemberType::Flag { .. } => None
+        };
+
+        if let Some(v) = v {
+            quote_into!{s += #ident: #(array(v)),}
+        }
+
+        Some(s)
     });
 
     let mut s = TokenStream::new();

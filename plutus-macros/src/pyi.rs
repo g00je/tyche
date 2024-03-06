@@ -3,40 +3,31 @@ use crate::parser::{Model, MemberType};
 pub fn pyi(model: &Model) -> String {
     let ident = &model.ident;
     let x = model.members.iter().map(|m| {
-        if m.private {
-            return None;
-        }
+        if m.private { return None; }
 
-        fn arr(ty: &MemberType) -> String {
-            match ty {
-                MemberType::Array { ty, .. } => {
-                    format!("list[{}]", arr(ty))
-                }
-                MemberType::Number { is_float, .. } => {
-                    if *is_float { "float" } else { "int" }.to_string()
-                }
-                MemberType::String { .. } => "str".to_string(),
-                MemberType::Bytes { .. } => "bytes".to_string(),
-                MemberType::Model { ty, .. } => ty.to_string(),
-                MemberType::Ipv4 => "str".to_string(),
-                MemberType::Flag { .. } => "bool".to_string(),
+        let array = |ty: &str| {
+            let arr = match &m.arr {
+                Some(a) => a,
+                None => return ty.to_string(),
+            };
+
+            arr.iter().rev().fold(ty.to_string(), |a, _| format!("list[{a}]"))
+        };
+
+        let v = match &m.ty {
+            MemberType::Number { is_float, .. } => {
+                if *is_float { "float" } else { "int" } .to_string()
             }
-        }
-        match &m.ty {
-            MemberType::Array { ty, .. } => {
-                Some(format!("{}: list[{}]", m.ident, arr(ty)))
-            }
-            MemberType::Number { is_float, .. } => Some(format!(
-                "{}: {}",
-                m.ident,
-                if *is_float { "float" } else { "int" }
-            )),
-            MemberType::String { .. } => Some(format!("{}: str", m.ident)),
-            MemberType::Bytes { .. } => Some(format!("{}: bytes", m.ident)),
-            MemberType::Model { ty, .. } => Some(format!("{}: {ty}", m.ident)),
-            MemberType::Ipv4 => Some(format!("{}: str", m.ident)),
-            MemberType::Flag { .. } => Some(format!("{}: bool", m.ident)),
-        }
+            MemberType::String { .. } => "str".to_string(),
+            MemberType::Bytes { .. } => "bytes".to_string(),
+            MemberType::Model { ty, optional, .. } => {
+                format!("{ty}{}", if *optional { " | None" } else {""})
+            },
+            MemberType::Ipv4 => "str".to_string(),
+            MemberType::Flag { .. } => "bool".to_string(),
+        };
+
+        Some(format!("{}: {}", m.ident, array(v.as_str())))
     });
 
     let mut pyi_result = format!("class {ident}(plutus.{ident}):\n");

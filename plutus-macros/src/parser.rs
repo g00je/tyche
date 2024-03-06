@@ -3,8 +3,8 @@ use quote::format_ident;
 
 use syn::{
     punctuated::Punctuated, token::Brace, Attribute, Expr, Field, Fields,
-    FieldsNamed, ItemStruct, Lit, Meta, LitInt, Type, PathArguments,
-    GenericArgument
+    FieldsNamed, GenericArgument, ItemStruct, Lit, LitInt, Meta, PathArguments,
+    Type,
 };
 
 #[derive(Debug)]
@@ -13,7 +13,6 @@ pub enum MemberType {
     Number { ty: Ident, min: Option<usize>, max: Option<usize>, is_float: bool },
     Bytes { len: usize },
     Model { ty: Ident, cty: Ident, optional: bool },
-    Array { ty: Box<MemberType>, len: usize },
     Flag { fl: Ident },
     Ipv4,
 }
@@ -23,6 +22,7 @@ pub struct Member {
     pub ident: Ident,
     pub ty: MemberType,
     pub private: bool,
+    pub arr: Option<Vec<usize>>,
 }
 
 #[derive(Debug)]
@@ -39,7 +39,10 @@ pub(crate) fn parse(args: TokenStream, item: ItemStruct) -> Model {
     let model = Model {
         c_ident: format_ident!("C{}", item.ident),
         ident: item.ident,
-        has_models: has_model(members.as_slice()),
+        has_models: members.iter().any(|m| match &m.ty {
+            MemberType::Model { .. } => true,
+            _ => false,
+        }),
         members,
         hexable: args.into_iter().any(|x| {
             if let TokenTree::Ident(i) = x {
@@ -51,21 +54,6 @@ pub(crate) fn parse(args: TokenStream, item: ItemStruct) -> Model {
     };
 
     model
-}
-
-fn has_model(members: &[Member]) -> bool {
-    fn arr(ty: &MemberType) -> bool {
-        match ty {
-            MemberType::Array { ty, .. } => arr(ty),
-            MemberType::Model { .. } => true,
-            _ => false,
-        }
-    }
-
-    members
-        .iter()
-        .find_map(|m| if arr(&m.ty) { Some(()) } else { None })
-        .is_some()
 }
 
 fn parse_fields(fields: Fields) -> Vec<Member> {
@@ -86,18 +74,21 @@ fn parse_fields(fields: Fields) -> Vec<Member> {
             ident: format_ident!("alive"),
             ty: MemberType::Flag { fl: format_ident!("FLAG_ALIVE") },
             private: false,
+            arr: None,
         });
 
         members.push(Member {
             ident: format_ident!("edited"),
             ty: MemberType::Flag { fl: format_ident!("FLAG_EDITED") },
             private: false,
+            arr: None,
         });
 
         members.push(Member {
             ident: format_ident!("private"),
             ty: MemberType::Flag { fl: format_ident!("FLAG_PRIVATE") },
             private: false,
+            arr: None,
         });
     }
 
@@ -110,10 +101,13 @@ fn parse_member(f: &Field) -> Member {
         None => panic!("field ident not found"),
     };
 
+    let (ty, arr) = parse_type(&f.ty, &parse_attrs(&f.attrs));
+
     Member {
         ident: ident.clone(),
-        ty: parse_type(&f.ty, &parse_attrs(&f.attrs)),
+        ty,
         private: ident.to_string().chars().next().unwrap() == '_',
+        arr,
     }
 }
 
@@ -216,7 +210,7 @@ fn parse_attrs(attrs: &Vec<Attribute>) -> Attr {
     }
 }
 
-fn parse_type(ty: &Type, attr: &Attr) -> MemberType {
+fn parse_type(ty: &Type, attr: &Attr) -> (MemberType, Option<Vec<usize>>) {
     match &ty {
         Type::Path(ty) => {
             let seg = &ty.path.segments[0];
@@ -225,41 +219,47 @@ fn parse_type(ty: &Type, attr: &Attr) -> MemberType {
             if ident.to_string() == "Option" {
                 if let PathArguments::AngleBracketed(ab) = &seg.arguments {
                     if let GenericArgument::Type(ty) = &ab.args[0] {
-                        let mt = parse_type(ty, attr);
+                        let (mt, arr) = parse_type(ty, attr);
                         if let MemberType::Model { ty, cty, .. } = mt {
-                            return MemberType::Model { ty, cty, optional: true };
-                        } else {
-                            return mt;
+                            return (
+                                MemberType::Model { ty, cty, optional: true },
+                                arr,
+                            );
                         }
-                    } else {
-                        panic!("invalid generic arg");
+
+                        return (mt, arr);
                     }
-                } else {
-                    panic!("invalid args for Option");
+                    panic!("invalid generic arg");
                 }
+                panic!("invalid args for Option");
             }
 
             if let Attr::Flg = attr {
-                return MemberType::Flag { fl: ident.clone() };
+                return (MemberType::Flag { fl: ident.clone() }, None);
             }
             let first_char = ident.to_string().chars().next().unwrap();
             if first_char.is_uppercase() {
-                MemberType::Model {
+                (MemberType::Model {
                     ty: ident.clone(),
                     cty: format_ident!("C{}", ident),
-                    optional: false
-                }
+                    optional: false,
+                }, None)
             } else {
                 let is_float = first_char == 'f';
                 if let Attr::Int { min, max } = attr {
-                    MemberType::Number { ty: ident.clone(), min: *min, max: *max, is_float }
+                    (MemberType::Number {
+                        ty: ident.clone(),
+                        min: *min,
+                        max: *max,
+                        is_float,
+                    }, None)
                 } else {
-                    MemberType::Number {
+                    (MemberType::Number {
                         ty: ident.clone(),
                         min: None,
                         max: None,
-                        is_float
-                    }
+                        is_float,
+                    }, None)
                 }
             }
         }
@@ -274,27 +274,32 @@ fn parse_type(ty: &Type, attr: &Attr) -> MemberType {
                 _ => panic!("array length must be literal"),
             };
 
-            let ty = parse_type(&arr.elem, attr);
+            let (ty, arr) = parse_type(&arr.elem, attr);
             if let MemberType::Number { ty, .. } = &ty {
                 if ty.to_string() == "u8" {
                     return match attr {
-                        Attr::Str { validator } => MemberType::String {
+                        Attr::Str { validator } => (MemberType::String {
                             len,
                             validator: validator.clone(),
-                        },
+                        }, None),
                         Attr::Ip4 => {
                             if len != 4 {
                                 panic!("ipv4 length must be 4")
                             }
-                            MemberType::Ipv4
+                            (MemberType::Ipv4, None)
                         }
-                        Attr::Non => MemberType::Bytes { len },
+                        Attr::Non => (MemberType::Bytes { len }, None),
                         _ => todo!("idk about this"),
                     };
                 }
             }
 
-            MemberType::Array { ty: Box::new(ty), len }
+            let mut lenv = vec![len];
+            if let Some(l) = arr {
+                lenv.extend(l)
+            }
+
+            (ty, Some(lenv))
         }
         _ => panic!("invalid type {:?}", ty),
     }

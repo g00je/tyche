@@ -20,67 +20,70 @@ pub fn dict_method(model: &Model) -> TokenStream {
 
     let dict_fields = model.members.iter().map(|m| {
         if m.private {return None}
+
+        
+
+        // fn arr(ident: &Ident, ty: &MemberType, lvl: &Vec<usize>) -> Option<TokenStream> {
+        //     let index = lvl.iter().map(|x| quote!([#x])).collect::<Vec<_>>();
+        //     match ty {
+        //         MemberType::Array { ty, len  } => {
+        //             let x = (0..*len).map(|f| {
+        //                 let mut x = lvl.clone();
+        //                 x.push(f);
+        //                 arr(ident, ty, &x)
+        //             }).collect::<Vec<_>>();
+        //
+        //             Some(quote! {
+        //                 [  #(#x)* ],
+        //             })
+        //         },
+        //         MemberType::Bytes { .. } => Some(quote!{
+        //             self.#ident #(#index)* .iter().map(|x| format!("{x:02x}")).collect::<String>(),
+        //         }),
+        //         MemberType::Ipv4 => Some(quote!{{
+        //             let value = self.#ident #(#index)*;
+        //             value.iter().enumerate().map(|(i, x)| {
+        //                 let x = x.to_string();
+        //                 if i < value.len()-1 {x + "."} else {x}
+        //             }).collect::<String>()
+        //         }}),
+        //         MemberType::Number { .. } => Some(quote! {
+        //             self.#ident #(#index)*,
+        //         }),
+        //         MemberType::Model { optional, .. } => {
+        //             if *optional {
+        //                 Some(quote! {
+        //                     if let Some(v) = & self.#ident #(#index)* {
+        //                         Some(v.try_borrow(py)?.dict()?)
+        //                     } else {None},
+        //                     //self.#ident #(#index)* .try_borrow(py)?.dict()?,
+        //                 })
+        //             } else {
+        //                 Some(quote! {
+        //                     self.#ident #(#index)* .try_borrow(py)?.dict()?,
+        //                 })
+        //             }},
+        //         MemberType::String { .. } => Some(quote!{
+        //             self.#ident #(#index)* .clone(),
+        //         }),
+        //         MemberType::Flag { .. } => None
+        //     }
+        // }
+
         let key = m.ident.to_string();
         let ident = &m.ident;
 
-        fn arr(ident: &Ident, ty: &MemberType, lvl: &Vec<usize>) -> Option<TokenStream> {
-            let index = lvl.iter().map(|x| quote!([#x])).collect::<Vec<_>>();
-            match ty {
-                MemberType::Array { ty, len  } => {
-                    let x = (0..*len).map(|f| {
-                        let mut x = lvl.clone();
-                        x.push(f);
-                        arr(ident, ty, &x)
-                    }).collect::<Vec<_>>();
-
-                    Some(quote! {
-                        [  #(#x)* ],
-                    })
-                },
-                MemberType::Bytes { .. } => Some(quote!{
-                    self.#ident #(#index)* .iter().map(|x| format!("{x:02x}")).collect::<String>(),
-                }),
-                MemberType::Ipv4 => Some(quote!{{
-                    let value = self.#ident #(#index)*;
-                    value.iter().enumerate().map(|(i, x)| {
-                        let x = x.to_string();
-                        if i < value.len()-1 {x + "."} else {x}
-                    }).collect::<String>()
-                }}),
-                MemberType::Number { .. } => Some(quote! {
-                    self.#ident #(#index)*,
-                }),
-                MemberType::Model { optional, .. } => {
-                    if *optional {
-                        Some(quote! {
-                            if let Some(v) = & self.#ident #(#index)* {
-                                Some(v.try_borrow(py)?.dict()?)
-                            } else {None},
-                            //self.#ident #(#index)* .try_borrow(py)?.dict()?,
-                        })
-                    } else {
-                        Some(quote! {
-                            self.#ident #(#index)* .try_borrow(py)?.dict()?,
-                        })
-                    }},
-                MemberType::String { .. } => Some(quote!{
-                    self.#ident #(#index)* .clone(),
-                }),
-                MemberType::Flag { .. } => None
-            }
-        }
-
         match &m.ty {
-            MemberType::Array { ty, len } => {
-                let x = (0..*len).map(|f| {
-                    let v = vec![f];
-                    arr(ident, ty, &v)
-                }).collect::<Vec<_>>();
-
-                Some(quote!{
-                    dict.set_item( #key, [ #(#x)* ] )?; 
-                })
-            },
+            // MemberType::Array { ty, len } => {
+            //     let x = (0..*len).map(|f| {
+            //         let v = vec![f];
+            //         arr(ident, ty, &v)
+            //     }).collect::<Vec<_>>();
+            //
+            //     Some(quote!{
+            //         dict.set_item( #key, [ #(#x)* ] )?; 
+            //     })
+            // },
             MemberType::Ipv4 => Some(quote!{
                 dict.set_item(
                     #key, 
@@ -117,7 +120,9 @@ pub fn dict_method(model: &Model) -> TokenStream {
             MemberType::String {..} => Some(quote!{
                 dict.set_item(#key, self.#ident.clone())?; 
             }),
-            MemberType::Flag {..} => None,
+            MemberType::Flag { fl } => Some(quote!{
+                dict.set_item(#key, (self.flag & #fl) == #fl)?; 
+            })
         }
     });
 

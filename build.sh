@@ -1,11 +1,11 @@
 #!/bin/sh
 
-cargo watch -c -x 'build --offline > src/main.rs'\
-    -s 'echo -e "\n\nfn main() {}" >> src/main.rs'\
-    -s 'maturin develop --offline'
-    # -s 'python test.py'
-
-exit
+# cargo watch -c -x 'build --offline > src/main.rs'\
+#     -s 'echo -e "\n\nfn main() {}" >> src/main.rs'\
+#     -s 'maturin develop --offline'
+#     # -s 'python test.py'
+#
+# exit
 
 base_dir=~/projects/g00je
 core_dir=$base_dir/core

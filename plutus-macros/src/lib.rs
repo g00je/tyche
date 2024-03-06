@@ -3,17 +3,20 @@ use std::io::Write;
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
+use quote_into::quote_into;
 use syn::{parse_macro_input, ItemStruct};
 
+mod utils;
 mod c_model;
+mod cs;
 mod ctm;
 mod default;
 mod dict;
-mod getset;
+// mod getset;
 mod mtc;
-mod parser;
 mod pyi;
 mod pydantic;
+mod parser;
 use parser::MemberType;
 
 #[proc_macro_attribute]
@@ -37,70 +40,55 @@ pub fn model(args: TokenStream, code: TokenStream) -> TokenStream {
             return None;
         }
 
-        fn arr(ty: &MemberType) -> TokenStream2 {
-            match ty {
-                MemberType::Array { ty, len } => {
-                    let ty = arr(&ty);
-                    quote!( [#ty; #len] )
-                }
-                MemberType::Number { ty, .. } => quote! { #ty },
-                MemberType::Bytes { len } => quote!( [u8; #len] ),
-                MemberType::Ipv4 => quote!([u8; 4]),
-                MemberType::String { len, .. } => quote!( [u8; #len] ),
-                MemberType::Model { ty, optional, .. } => {
-                    if *optional {
-                        quote!( Option<::pyo3::Py<#ty>> )
-                    } else {
-                        quote!( ::pyo3::Py<#ty> )
-                    }
-                }
-                MemberType::Flag { .. } => quote!(),
-            }
-        }
+        let array = |ty: TokenStream2| {
+            let arr = match &m.arr {
+                Some(a) => a,
+                None => return ty,
+            };
+
+            arr.iter().rev().fold(ty, |a, i| quote!([#a; #i]))
+        };
 
         let ident = &m.ident;
-        Some(match &m.ty {
-            MemberType::Number { ty, .. } => quote! {
+        let mut s = TokenStream2::new();
+        match &m.ty {
+            MemberType::Number { ty, .. } => quote_into! {s +=
                 #[pyo3(get)]
-                #ident:#ty,
+                #ident: #(array(quote!(#ty))),
             },
-            MemberType::Array { ty, len } => {
-                let ty = arr(ty);
-                quote! {
-                    #[pyo3(get, set)]
-                    #ident: [#ty; #len],
-                }
-            }
-            MemberType::Bytes { len } => quote! { #ident: [u8; #len], },
-            MemberType::Ipv4 => quote!( #ident: [u8; 4], ),
-            MemberType::String { .. } => quote! {
+            MemberType::Bytes { len } => quote_into! {s +=
+                #ident: #(array(quote!([u8; #len]))),
+            },
+            MemberType::Ipv4 => quote_into! {s +=
+                #ident: #(array(quote!([u8; 4]))),
+            },
+            MemberType::String { .. } => quote_into! {s +=
                 #[pyo3(get)]
-                #ident: String,
+                #ident: #(array(quote!(String))),
             },
             MemberType::Model { ty, optional, .. } => {
-                if *optional {
-                    quote! {
-                        #[pyo3(get, set)]
-                        #ident: Option<::pyo3::Py<#ty>>,
-                    }
-                } else {
-                    quote! {
-                        #[pyo3(get, set)]
-                        #ident: ::pyo3::Py<#ty>,
-                    }
+                let ty = quote!(::pyo3::Py<#ty>);
+                let ty = if *optional { quote!(Option<#ty>) } else { ty };
+
+                quote_into! {s +=
+                    #[pyo3(get, set)]
+                    #ident: #(array(ty)),
                 }
             }
-            MemberType::Flag { .. } => quote!(),
-        })
+            MemberType::Flag { .. } => (),
+        }
+
+        Some(s)
     });
 
     let dict_method = dict::dict_method(&item);
     let default_tokens = default::default(&item);
-    let getsets = getset::getset(&item);
+    // let getsets = getset::getset(&item);
     let c_struct = c_model::c_model(&item);
     let mtc_tokens = mtc::mtc(&item);
     let ctm_tokens = ctm::ctm(&item);
     let pyi_tokens = pyi::pyi(&item);
+    let cs_tokens = cs::cs(&item);
     let pydantic_tokens = pydantic::pydantic(&item);
 
     let output = quote! {
@@ -146,6 +134,7 @@ pub fn model(args: TokenStream, code: TokenStream) -> TokenStream {
             }
 
             pub const PYI: &'static str = #pyi_tokens;
+            pub const CS: &'static str = #cs_tokens;
             pub fn get_pydantic() -> String {
                 #pydantic_tokens
             }

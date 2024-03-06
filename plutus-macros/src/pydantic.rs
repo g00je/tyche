@@ -21,63 +21,67 @@ pub fn pydantic(model: &Model) -> TokenStream {
             return None;
         }
 
-        fn arr(ty: &MemberType) -> String {
-            match ty {
-                MemberType::Array { ty, len } => format!(
-                    "pydantic.conlist({}, min_length={}, max_length={})",
-                    arr(ty),
-                    len,
-                    len
-                ),
-                MemberType::Number { is_float, min, max, ty } => {
-                    if *is_float {
-                        format!(
-                            "pydantic.confloat({}{})",
-                            if let Some(m) = min {
-                                format!("gt={},", m)
-                            } else {
-                                "".to_string()
-                            },
-                            if let Some(m) = max {
-                                format!("lt={}", m)
-                            } else {
-                                "".to_string()
-                            }
-                        )
-                    } else {
-                        let x = min_max(*min, *max, ty);
-                        format!("pydantic.conint(gt={}, lt={})", x.0, x.1)
-                    }
-                }
-                MemberType::String { len, .. } => {
-                    format!("pydantic.constr(max_length={})", len)
-                }
-                MemberType::Bytes { len } => format!(
-                    "pydantic.constr(min_length={}, max_length={})",
-                    len * 2,
-                    len * 2
-                ),
-                MemberType::Model { ty, optional, .. } => format!(
-                    "{ty}Model{}",
-                    if *optional { " | None" } else { "" }
-                ),
-                MemberType::Ipv4 => "str".to_string(),
-                MemberType::Flag { .. } => "bool".to_string(),
-            }
-        }
-        match &m.ty {
-            MemberType::Array { ty, len } => Some(format!(
-                "{}: pydantic.conlist({}, min_length={}, max_length={})",
-                m.ident,
-                arr(ty),
-                len,
-                len
-            )),
+        // fn arr(ty: &MemberType) -> String {
+        //     match ty {
+        //         // MemberType::Array { ty, len } => format!(
+        //         //     "pydantic.conlist({}, min_length={}, max_length={})",
+        //         //     arr(ty),
+        //         //     len,
+        //         //     len
+        //         // ),
+        //         MemberType::Number { is_float, min, max, ty } => {
+        //             if *is_float {
+        //                 format!(
+        //                     "pydantic.confloat({}{})",
+        //                     if let Some(m) = min {
+        //                         format!("gt={},", m)
+        //                     } else {
+        //                         "".to_string()
+        //                     },
+        //                     if let Some(m) = max {
+        //                         format!("lt={}", m)
+        //                     } else {
+        //                         "".to_string()
+        //                     }
+        //                 )
+        //             } else {
+        //                 let x = min_max(*min, *max, ty);
+        //                 format!("pydantic.conint(gt={}, lt={})", x.0, x.1)
+        //             }
+        //         }
+        //         MemberType::String { len, .. } => {
+        //             format!("pydantic.constr(max_length={})", len)
+        //         }
+        //         MemberType::Bytes { len } => format!(
+        //             "pydantic.constr(min_length={}, max_length={})",
+        //             len * 2,
+        //             len * 2
+        //         ),
+        //         MemberType::Model { ty, optional, .. } => format!(
+        //             "{ty}Model{}",
+        //             if *optional { " | None" } else { "" }
+        //         ),
+        //         MemberType::Ipv4 => "str".to_string(),
+        //         MemberType::Flag { .. } => "bool".to_string(),
+        //     }
+        // }
+
+        let array = |ty: String| {
+            let arr = match &m.arr {
+                Some(a) => a,
+                None => return ty,
+            };
+
+            arr.iter().rev().fold(ty, |a, i| {
+                format!("pydantic.conlist({a}, min_length={i}, max_length={i})")
+            })
+        };
+
+        let v = match &m.ty {
             MemberType::Number { is_float, ty, min, max } => {
                 Some(if *is_float {
                     format!(
-                        "{}: pydantic.confloat({}{})",
-                        m.ident,
+                        "pydantic.confloat({}{})",
                         if let Some(m) = min {
                             format!("gt={},", m)
                         } else {
@@ -91,29 +95,29 @@ pub fn pydantic(model: &Model) -> TokenStream {
                     )
                 } else {
                     let x = min_max(*min, *max, ty);
-                    format!(
-                        "{}: pydantic.conint(gt={}, lt={})",
-                        m.ident, x.0, x.1
-                    )
+                    format!("pydantic.conint(gt={}, lt={})", x.0, x.1)
                 })
             }
             MemberType::String { len, .. } => Some(format!(
-                "{}: pydantic.constr(max_length={})",
-                m.ident, len
+                "pydantic.constr(max_length={})", len
             )),
             MemberType::Bytes { len } => Some(format!(
-                "{}: pydantic.constr(min_length={}, max_length={})",
-                m.ident,
+                "pydantic.constr(min_length={}, max_length={})",
                 len * 2,
                 len * 2
             )),
             MemberType::Model { ty, optional, .. } => Some(format!(
-                "{}: {ty}Model{}",
-                m.ident,
+                "{ty}Model{}",
                 if *optional { " | None" } else { "" }
             )),
-            MemberType::Ipv4 => Some(format!("{}: str", m.ident)),
-            MemberType::Flag { .. } => Some(format!("{}: bool", m.ident)),
+            MemberType::Ipv4 => Some("str".to_string()),
+            MemberType::Flag { .. } => Some("bool".to_string()),
+        };
+
+        if let Some(v) = v {
+            Some(format!("{}: {}", m.ident, array(v)))
+        } else {
+            None
         }
     });
 

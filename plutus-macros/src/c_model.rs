@@ -6,35 +6,39 @@ use quote_into::quote_into;
 pub fn c_model(model: &Model) -> TokenStream {
     let c_ident = &model.c_ident;
     let c_fields = model.members.iter().map(|m| {
-        fn arr(ty: &MemberType) -> TokenStream {
-            match ty {
-                MemberType::Array { ty, len } => {
-                    let ty = arr(&ty);
-                    quote!( [#ty; #len] )
-                }
-                MemberType::Number { ty, .. } => quote! { #ty },
-                MemberType::Bytes { len } => quote!( [u8; #len] ),
-                MemberType::String { len, .. } => quote!( [u8; #len] ),
-                MemberType::Model { cty, .. } => quote!( #cty ),
-                MemberType::Flag { .. } => quote!(),
-                MemberType::Ipv4 => quote!([u8; 4]),
-            }
-        }
-
         let ident = &m.ident;
 
+        let array = |ty: TokenStream| {
+            let arr = match &m.arr {
+                Some(a) => a,
+                None => return ty,
+            };
+
+            arr.iter().rev().fold(ty, |a, i| quote!([#a; #i]))
+        };
+
+        let mut s = TokenStream::new();
+
         match &m.ty {
-            MemberType::Number { ty, .. } => quote!(#ident : #ty,),
-            MemberType::Array { ty, len } => {
-                let ty = arr(ty);
-                quote! { #ident: [#ty; #len], }
-            }
-            MemberType::Bytes { len } => quote!(#ident: [u8; #len], ),
-            MemberType::String { len, .. } => quote!(#ident: [u8; #len], ),
-            MemberType::Model { cty, .. } => quote!(#ident: #cty, ),
-            MemberType::Flag { .. } => quote!(),
-            MemberType::Ipv4 => quote!(#ident: [u8; 4],),
+            MemberType::Number { ty, .. } => quote_into! {s +=
+                #ident: #(array(quote!(#ty))),
+            },
+            MemberType::Bytes { len } => quote_into! {s +=
+                #ident: #(array(quote!([u8; #len]))),
+            },
+            MemberType::String { len, .. } => quote_into! {s +=
+                #ident: #(array(quote!([u8; #len]))),
+            },
+            MemberType::Model { cty, .. } => quote_into! { s +=
+                #ident: #(array(quote!(#cty))),
+            },
+            MemberType::Ipv4 => quote_into! {s +=
+                #ident: #(array(quote!([u8; 4]))),
+            },
+            MemberType::Flag { .. } => (),
         }
+
+        s
     });
 
     let default_tokens = default(model);
@@ -44,9 +48,7 @@ pub fn c_model(model: &Model) -> TokenStream {
         #[repr(C)]
         #[derive(Debug)]
         struct #c_ident {
-            #{for f in c_fields {
-                quote_into!(s += #f)
-            }}
+            #{for f in c_fields { quote_into!(s += #f) }}
         }
 
         impl #c_ident {
@@ -105,62 +107,56 @@ pub fn c_model(model: &Model) -> TokenStream {
 fn default(model: &Model) -> TokenStream {
     let c_ident = &model.c_ident;
     let default_fields = model.members.iter().map(|m| {
-        fn arr(ty: &MemberType) -> TokenStream {
-            match ty {
-                MemberType::Array { ty, len } => {
-                    let ty = arr(&ty);
-                    let mut s = TokenStream::new();
-                    quote_into!(s += [
-                        #{(0..*len).for_each(|_| quote_into!(s += #ty,))}
-                    ]);
-                    s
-                }
-                MemberType::Number { is_float, .. } => {
-                    if *is_float {
-                        quote!(0.0)
-                    } else {
-                        quote!(0)
-                    }
-                }
-                MemberType::Bytes { len } => quote!( [0; #len] ),
-                MemberType::Ipv4 => quote!([0, 0, 0, 0]),
-                MemberType::String { len, .. } => quote!( [0; #len] ),
-                MemberType::Model { cty, .. } => {
-                    quote!( <#cty>::default() )
-                }
-                MemberType::Flag { .. } => quote!(),
-            }
-        }
+        let array = |ty: TokenStream| {
+            let arr = match &m.arr {
+                Some(a) => a,
+                None => return ty,
+            };
+
+            arr.iter().rev().fold(ty, |a, i| {
+                let mut s = TokenStream::new();
+                quote_into!(s += [#{
+                    for _ in 0..*i { quote_into!(s += #a,) }
+                }]);
+                s
+            })
+        };
 
         let ident = &m.ident;
+        let mut s = TokenStream::new();
         match &m.ty {
-            MemberType::Array { ty, len } => {
-                let ty = arr(ty);
-                let mut s = TokenStream::new();
-                quote_into!(s += #ident: [
-                    #{(0..*len).for_each(|_| quote_into!(s += #ty,))}
-                ],);
-                s
-            }
-            MemberType::Bytes { len } => quote!(#ident: [0; #len], ),
-            MemberType::Ipv4 => quote!(#ident: [0, 0, 0, 0],),
-            MemberType::String { len, .. } => quote!(#ident: [0; #len], ),
-            MemberType::Model { cty, .. } => {
-                quote!(#ident: <#cty>::default(),)
-            }
+            // MemberType::Array { ty, len } => {
+            //     let ty = arr(ty);
+            //     let mut s = TokenStream::new();
+            //     quote_into!(s += #ident: [
+            //         #{(0..*len).for_each(|_| quote_into!(s += #ty,))}
+            //     ],);
+            //     s
+            // }
+            MemberType::Bytes { len } => quote_into! {s += 
+                #ident: #(array(quote!([0; #len]))),
+            },
+            MemberType::Ipv4 => quote_into! { s +=
+                #ident: #(array(quote!([0, 0, 0, 0]))),
+            },
+            MemberType::String { len, .. } => quote_into! { s += 
+                #ident: #(array(quote!([0; #len]))),
+            },
+            MemberType::Model { cty, .. } => quote_into! { s +=
+                #ident: #(array(quote!(<#cty>::default()))),
+            },
             MemberType::Number { is_float, .. } => {
-                if *is_float {
-                    quote!(#ident: 0.0,)
-                } else {
-                    quote!(#ident: 0,)
-                }
+                let def = if *is_float {quote!(0.0)} else {quote!(0)};
+                quote_into! { s += #ident: #(array(def)),}
             }
-            MemberType::Flag { .. } => quote!(),
+            MemberType::Flag { .. } => (),
         }
+
+        s
     });
 
     let mut s = TokenStream::new();
-    quote_into! { s += 
+    quote_into! { s +=
         impl Default for #c_ident {
             fn default() -> Self {
                 Self {

@@ -1,6 +1,7 @@
-use crate::parser::{Model, MemberType};
+use crate::parser::{MemberType, Model};
 use proc_macro2::TokenStream;
 use quote::quote;
+use quote_into::quote_into;
 
 pub fn mtc(model: &Model) -> TokenStream {
     let mtc_fields = model.members.iter().map(|m| {
@@ -14,75 +15,50 @@ pub fn mtc(model: &Model) -> TokenStream {
             };
         }
 
-        fn arr(ty: &MemberType) -> Option<(TokenStream, TokenStream, TokenStream)> {
-            match ty {
-                MemberType::Array { ty, .. } => match arr(&ty) {
-                    Some((a, b, c)) => Some((
-                        quote!{ x.map(|x| #a ) },
-                        quote!{ x.iter().find_map(|x| #b ) },
-                        quote!{ x.map(|x| #c ) },
-                    )),
-                    None => None,
-                },
-                MemberType::Model { optional, cty, .. } => {
-                    if *optional {
-                        Some((
-                            quote!{
-                                if let Some(v) = x {
-                                    v.try_borrow(py)?.clone().try_into()
-                                } else {Ok(<#cty>::default())}
-                            },
-                            quote!{ if x.is_err() {Some(())} else {None} },
-                            quote!{x.unwrap()}
-                        ))
-                    } else {
-                        Some((
-                            quote!{x.try_borrow(py)?.clone().try_into()},
-                            quote!{ if x.is_err() {Some(())} else {None} },
-                            quote!{x.unwrap()}
-                        ))
-                    }
-                },
-                _ => None,
-            }
-        }
+        let mut s = TokenStream::new();
         match &m.ty {
-            MemberType::Array { ty, .. } => match arr(ty) {
-                Some((a, b, c)) => quote! { #ident: {
-                    let x = value.#ident.map(|x| #a );
-                    if let Some(_) = x.iter().find_map(|x| #b ) {
-                        return Err(::pyo3::exceptions::PyValueError::new_err(
-                            "could not convert the value"
-                        ));
-                    }
-                    x.map(|x| #c )
-                }, },
-                None => quote! { #ident: value.#ident, },
-            },
-            MemberType::Bytes { .. } => quote!(#ident: value.#ident, ),
-            MemberType::Ipv4 => quote!(#ident: value.#ident, ),
-            MemberType::String { len, .. } => quote! {
-                // #ident: string_to_array(value.#ident, #len),
-                #ident: {
-                    let mut data = value.#ident.as_bytes().to_vec();
-                    data.resize(#len, 0);
-                    data.as_slice().try_into().unwrap()
-                },
+            MemberType::Bytes { .. } => quote_into!{s += #ident: value.#ident,},
+            MemberType::Number { .. } => quote_into!{s+= #ident: value.#ident,},
+            MemberType::Ipv4 => quote_into!{s += #ident: value.#ident, },
+            MemberType::String { len, .. } => {
+                let gen = |idx: TokenStream| {
+                    quote! {{
+                        let mut data = value.#ident #idx .as_bytes().to_vec();
+                        data.resize(#len, 0);
+                        data.as_slice().try_into().unwrap()
+                    }}
+                };
+                quote_into! {s +=
+                    #ident: #(crate::utils::array_index(&m.arr, &gen)),
+                }
             },
             MemberType::Model { optional, cty, .. } => {
-                if *optional {
-                    quote!{#ident: if let Some(v) = value.#ident {
-                        v.try_borrow(py)?.clone().try_into()?} else {
+                let g1 = |idx: TokenStream| {
+                    quote! {
+                        if let Some(v) = &value.#ident #idx {
+                            v.try_borrow(py)?.clone().try_into()?
+                        } else {
                             <#cty>::default()
                         },
                     }
+                };
+                let g2 = |idx: TokenStream| {
+                    quote! {
+                        value.#ident #idx.try_borrow(py)?.clone().try_into()?,
+                    }
+                };
+
+                let output = if *optional {
+                    crate::utils::array_index(&m.arr, &g1)
                 } else {
-                    quote!(#ident: value.#ident.try_borrow(py)?.clone().try_into()?, )
-                }
+                    crate::utils::array_index(&m.arr, &g2)
+                };
+                quote_into!{s += #ident: #output}
             }
-            MemberType::Number { .. } => quote!(#ident: value.#ident, ),
-            MemberType::Flag { .. } => quote!(),
+            MemberType::Flag { .. } => (),
         }
+
+        s
     });
 
     let mtc_tokens = if model.has_models {
