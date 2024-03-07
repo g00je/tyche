@@ -39,12 +39,12 @@ pub fn mtc(model: &Model) -> TokenStream {
                             v.try_borrow(py)?.clone().try_into()?
                         } else {
                             <#cty>::default()
-                        },
+                        }
                     }
                 };
                 let g2 = |idx: TokenStream| {
                     quote! {
-                        value.#ident #idx.try_borrow(py)?.clone().try_into()?,
+                        value.#ident #idx.try_borrow(py)?.clone().try_into()?
                     }
                 };
 
@@ -53,7 +53,7 @@ pub fn mtc(model: &Model) -> TokenStream {
                 } else {
                     crate::utils::array_index(&m.arr, &g2)
                 };
-                quote_into!{s += #ident: #output}
+                quote_into!{s += #ident: #output,}
             }
             MemberType::Flag { .. } => (),
         }

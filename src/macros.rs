@@ -10,10 +10,9 @@ macro_rules! act_on_models {
         macro_rules! act { $($mac)* }
 
         crate::macros::act_on_list! {
-            // [ResponseHead, Gene, Detail, Record, Agent, Duration,
-            //  Eatery, Dish, Review, ReviewData, BlockHeader, ReviewBlock,
-            //  MenuBlock, SessionInfo, Session, User, UserLoginArgs],
-            [Gene, Duration, Eatery, SessionInfo, Session],
+            [ResponseHead, Gene, Detail, Record, Agent, Duration,
+             Eatery, Dish, Review, ReviewData, BlockHeader, ReviewBlock,
+             MenuBlock, SessionInfo, Session, User, UserLoginArgs],
             act
         }
     }

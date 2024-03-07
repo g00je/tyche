@@ -30,9 +30,9 @@ pub fn array_index(
             [
                 #{(0..arr.remove(0)).for_each(|i| {
                     idx[lvl] = i;
-                    quote_into!{s += #(inner(&arr, idx, lvl+1, gen_out))}
+                    quote_into!{s += #(inner(&arr, idx, lvl+1, gen_out)),}
                 })}
-            ],
+            ]
         }
 
         s

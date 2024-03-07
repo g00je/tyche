@@ -154,14 +154,7 @@ pub fn getset(model: &Model) -> TokenStream {
                     }
                 }
             },
-            MemberType::Model { .. } => {
-                quote! {
-                    // #[getter]
-                    // fn #ident(&self) -> &#ty {
-                    //     &self.#ident
-                    // }
-                }
-            },
+            MemberType::Model { .. } => quote!(),
             MemberType::Flag { fl } => {
                 let get_ident = format_ident!("get_{}", ident);
                 let set_ident = format_ident!("set_{}", ident);
@@ -183,7 +176,6 @@ pub fn getset(model: &Model) -> TokenStream {
                     }
                 }
             },
-            _ => quote!(),
         })
     });
 

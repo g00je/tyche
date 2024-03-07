@@ -12,7 +12,7 @@ mod cs;
 mod ctm;
 mod default;
 mod dict;
-// mod getset;
+mod getset;
 mod mtc;
 mod pyi;
 mod pydantic;
@@ -83,7 +83,7 @@ pub fn model(args: TokenStream, code: TokenStream) -> TokenStream {
 
     let dict_method = dict::dict_method(&item);
     let default_tokens = default::default(&item);
-    // let getsets = getset::getset(&item);
+    let getsets = getset::getset(&item);
     let c_struct = c_model::c_model(&item);
     let mtc_tokens = mtc::mtc(&item);
     let ctm_tokens = ctm::ctm(&item);

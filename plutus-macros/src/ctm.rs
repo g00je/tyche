@@ -25,7 +25,6 @@ pub fn ctm(model: &Model) -> TokenStream {
                 };
 
                 quote_into! {s +=
-                    // #ident: string_to_array(value.#ident, #len),
                     #ident: #(crate::utils::array_index(&m.arr, &gen)),
                 }
             },
@@ -34,12 +33,12 @@ pub fn ctm(model: &Model) -> TokenStream {
                     quote! {
                         if value.#ident #idx .is_none() {None} else {
                             Some(::pyo3::Py::new(py, <#ty>::try_from(&value.#ident #idx )?)?)
-                        },
+                        }
                     }
                 };
                 let g2 = |idx: TokenStream| {
                     quote! {
-                        ::pyo3::Py::new(py, <#ty>::try_from(&value.#ident #idx )?)?,
+                        ::pyo3::Py::new(py, <#ty>::try_from(&value.#ident #idx )?)?
                     }
                 };
 
@@ -48,7 +47,7 @@ pub fn ctm(model: &Model) -> TokenStream {
                 } else {
                     crate::utils::array_index(&m.arr, &g2)
                 };
-                quote_into!{s += #ident: #output}
+                quote_into!{s += #ident: #output,}
             }
             MemberType::Number { .. } => quote_into!{s += #ident: value.#ident, },
             MemberType::Flag { .. } => ()

@@ -33,51 +33,51 @@ fn phone_validator(value: String) -> PyResult<String> {
     }
 }
 
-// #[model]
-// struct ResponseHead {
-//     status: u32,
-//     size: u32,
-//     elapsed: f64,
-// }
-//
+#[model]
+struct ResponseHead {
+    status: u32,
+    size: u32,
+    elapsed: f64,
+}
+
 #[model(hex)]
 struct Gene {
     id: u32,
     pepper: u16,
     server: u16,
 }
-//
-// #[model]
-// struct Detail {
-//     flag: u64,
-//     gene: Gene,
-//     size: u32,
-//     length: u32,
-//     position: u64,
-// }
-//
-// #[model]
-// struct Record {
-//     flag: u64,
-//     gene: Gene,
-//     detail: Gene,
-//     checksum: [u8; 16],
-//     server: u32,
-//     width: u32,
-//     height: u32,
-//     size: u32,
-//     ext: u8,
-//     _reserved: [u8; 3],
-//     duration: f32,
-// }
-//
-// #[model]
-// struct Agent {
-//     flag: u64,
-//     gene: Gene,
-//     user: Gene,
-//     admin_perms: [u8; 64],
-// }
+
+#[model]
+struct Detail {
+    flag: u64,
+    gene: Gene,
+    size: u32,
+    length: u32,
+    position: u64,
+}
+
+#[model]
+struct Record {
+    flag: u64,
+    gene: Gene,
+    detail: Gene,
+    checksum: [u8; 16],
+    server: u32,
+    width: u32,
+    height: u32,
+    size: u32,
+    ext: u8,
+    _reserved: [u8; 3],
+    duration: f32,
+}
+
+#[model]
+struct Agent {
+    flag: u64,
+    gene: Gene,
+    user: Gene,
+    admin_perms: [u8; 64],
+}
 
 #[model]
 struct Duration {
@@ -116,60 +116,60 @@ struct Eatery {
     // gg: [[[Gene; 4]; 2]; 3],
 }
 
-// #[model]
-// struct Dish {
-//     flag: u64,
-//     ty: u8,
-//     #[str]
-//     name: [u8; 53],
-//     currency: u16,
-//     photos: [Gene; 4],
-//     price: i64,
-// }
-//
-// #[model]
-// struct Review {
-//     flag: u64,
-//     target: Gene,       // eatery OR user
-//     target_block: Gene, // eatery review OR user review. its not there own block
-//     detail: Gene,
-//     timestamp: u64,
-//     #[int(max = 5)]
-//     star: u8,
-//     target_index: u8,
-//     #[str]
-//     summary: [u8; 222],
-// }
-//
-// #[model]
-// struct ReviewData {
-//     gene: Gene,
-//     idx: u64,
-//     review: Review,
-// }
-//
-// #[model]
-// struct BlockHeader {
-//     flag: u64,
-//     gene: Gene,
-//     parent: Gene,
-//     past: Gene,
-//     next: Gene,
-//     live: u8,
-//     _reserved: [u8; 7],
-// }
-//
-// #[model]
-// struct ReviewBlock {
-//     header: BlockHeader,
-//     reviews: [Review; 32],
-// }
-//
-// #[model]
-// struct MenuBlock {
-//     header: BlockHeader,
-//     menu: [Dish; 32],
-// }
+#[model]
+struct Dish {
+    flag: u64,
+    ty: u8,
+    #[str]
+    name: [u8; 53],
+    currency: u16,
+    photos: [Gene; 4],
+    price: i64,
+}
+
+#[model]
+struct Review {
+    flag: u64,
+    target: Gene,       // eatery OR user
+    target_block: Gene, // eatery review OR user review. its not there own block
+    detail: Gene,
+    timestamp: u64,
+    #[int(max = 5)]
+    star: u8,
+    target_index: u8,
+    #[str]
+    summary: [u8; 222],
+}
+
+#[model]
+struct ReviewData {
+    gene: Gene,
+    idx: u64,
+    review: Review,
+}
+
+#[model]
+struct BlockHeader {
+    flag: u64,
+    gene: Gene,
+    parent: Gene,
+    past: Gene,
+    next: Gene,
+    live: u8,
+    _reserved: [u8; 7],
+}
+
+#[model]
+struct ReviewBlock {
+    header: BlockHeader,
+    reviews: [Review; 32],
+}
+
+#[model]
+struct MenuBlock {
+    header: BlockHeader,
+    menu: [Dish; 32],
+}
 
 #[model]
 struct SessionInfo {
@@ -192,31 +192,31 @@ struct Session {
     timestamp: u64,
     token: [u8; 64],
 }
-//
-// #[model]
-// struct User {
-//     flag: u64,
-//     gene: Gene,
-//     agent: Option<Gene>,
-//     review: Option<Gene>,
-//     photo: Option<Gene>,
-//     #[str(validator = phone_validator)]
-//     phone: [u8; 12],
-//     #[int(max = 999)]
-//     cc: u16,
-//     #[str]
-//     name: [u8; 50],
-//     sessions: [Session; 3],
-// }
-//
-// #[model]
-// struct UserLoginArgs {
-//     #[int(max = 999)]
-//     cc: u16,
-//     #[str(validator = phone_validator)]
-//     phone: [u8; 12],
-//     session: Session,
-// }
+
+#[model]
+struct User {
+    flag: u64,
+    gene: Gene,
+    agent: Option<Gene>,
+    review: Option<Gene>,
+    photo: Option<Gene>,
+    #[str(validator = phone_validator)]
+    phone: [u8; 12],
+    #[int(max = 999)]
+    cc: u16,
+    #[str]
+    name: [u8; 50],
+    sessions: [Session; 3],
+}
+
+#[model]
+struct UserLoginArgs {
+    #[int(max = 999)]
+    cc: u16,
+    #[str(validator = phone_validator)]
+    phone: [u8; 12],
+    session: Session,
+}
 
 #[cfg(test)]
 mod tests {
