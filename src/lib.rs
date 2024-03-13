@@ -43,8 +43,12 @@ struct ResponseHead {
 #[model(hex)]
 struct Gene {
     id: u32,
-    pepper: u16,
-    server: u16,
+    pepper: u32,
+    server: u32,
+    version: u8,
+    idx: u8,
+    iter: u8,
+    _reserved: u8
 }
 
 #[model]
@@ -77,6 +81,7 @@ struct Agent {
     gene: Gene,
     user: Gene,
     admin_perms: [u8; 64],
+    reviews: [u64; 3],
 }
 
 #[model]
@@ -113,7 +118,6 @@ struct Eatery {
     opening_hours: [[Duration; 4]; 7],
     #[str]
     name: [u8; 59],
-    // gg: [[[Gene; 4]; 2]; 3],
 }
 
 #[model]
@@ -136,9 +140,8 @@ struct Review {
     timestamp: u64,
     #[int(max = 5)]
     star: u8,
-    target_index: u8,
     #[str]
-    summary: [u8; 222],
+    summary: [u8; 223],
 }
 
 #[model]
@@ -222,17 +225,17 @@ struct UserLoginArgs {
 mod tests {
     #[test]
     fn test_sizes() {
-        // assert!(crate::Gene::SIZE == 16);
-        // assert!(crate::ResponseHead::SIZE == 16);
-        // assert!(crate::Detail::SIZE == 32);
-        // assert!(crate::Record::SIZE == 64);
-        // assert!(crate::Session::SIZE == 88);
-        // assert!(crate::User::SIZE == 368);
-        // assert!(crate::Agent::SIZE == 88);
-        // assert!(crate::Eatery::SIZE == 256);
-        // assert!(crate::Dish::SIZE == 104);
-        // assert!(crate::Review::SIZE == 264);
-        // assert!(crate::ReviewData::SIZE == 16 + 264);
+        assert!(crate::Gene::SIZE == 16);
+        assert!(crate::ResponseHead::SIZE == 16);
+        assert!(crate::Detail::SIZE == 32);
+        assert!(crate::Record::SIZE == 64);
+        assert!(crate::Session::SIZE == 88);
+        assert!(crate::User::SIZE == 368);
+        assert!(crate::Agent::SIZE == 88);
+        assert!(crate::Eatery::SIZE == 256);
+        assert!(crate::Dish::SIZE == 104);
+        assert!(crate::Review::SIZE == 264);
+        assert!(crate::ReviewData::SIZE == 16 + 264);
     }
 }
 

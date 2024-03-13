@@ -41,10 +41,8 @@ pub fn cs(model: &Model) -> String {
         };
 
         let x = match &m.arr {
-            Some(a) => a.iter().fold(String::new(), |a, i| {
-                format!("{a}[{i}]")
-            }),
-            None => String::new()
+            Some(a) => a.iter().fold(String::new(), |a, i| format!("{a}[{i}]")),
+            None => String::new(),
         };
 
         if let Some((a, b)) = v {
@@ -63,7 +61,36 @@ pub fn cs(model: &Model) -> String {
     });
 
     result += "} ";
-    result += &format!("{ident};");
+    result += &format!("{ident};\n\n#ifdef DO_PAD_CHECK\n");
 
+    let _ = model
+        .members
+        .iter()
+        .filter(|m| match &m.ty {
+            MemberType::Flag {..} => false,
+            _ => true
+        })
+        .scan(None as Option<String>, |state, m| {
+            let prop = m.ident.to_string();
+            let prev = state.clone();
+            *state = Some(prop.clone());
+            Some((prev, prop))
+        })
+        .for_each(|(prev, prop)| {
+            if let Some(prev) = prev {
+                result += &format!(
+r##"
+_Static_assert(
+    offsetof({ident}, {prop}) == (offsetof({ident}, {prev}) + sizeof( (({ident} *)0)->{prev} )),
+    "invalid {ident}->{prop} offset"
+);"##
+            );
+            } else {
+                result += &format!(r##"
+_Static_assert(offsetof({ident}, {prop}) == 0, "invalid offset of {ident}.{prop} must be 0");"##);
+            }
+        });
+
+    result += "\n#endif // DO_PAD_CHECK\n";
     result
 }

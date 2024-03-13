@@ -8,13 +8,22 @@ pub fn getset(model: &Model) -> TokenStream {
         if m.private{return None}
         let ident = &m.ident;
 
+        let array = |ty: TokenStream| {
+            let arr = match &m.arr {
+                Some(a) => a,
+                None => return ty,
+            };
+
+            arr.iter().rev().fold(ty, |a, i| quote!([#a; #i]))
+        };
+
         Some(match &m.ty {
             MemberType::Number { min, max, ty, .. } => {
                 let mut s = TokenStream::new();
 
                 quote_into! {s +=
                     #[setter]
-                    fn #ident(&mut self, value: #ty) -> ::pyo3::PyResult<()> {
+                    fn #ident(&mut self, value: #(array(quote!(#ty)))) -> ::pyo3::PyResult<()> {
                         #{if let Some(min) = min {
                             let err = format!("minimum value is {}", min);
                             quote_into!(s += 

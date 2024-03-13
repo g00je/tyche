@@ -1,4 +1,3 @@
-
 #[macro_export]
 macro_rules! act_on_list {
     ([$($m:ident),*], $g:ident) => { $( $g! ( $m ); )* }

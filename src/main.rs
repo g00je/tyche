@@ -28,7 +28,10 @@ fn write_stuff() -> std::io::Result<()> {
 #define __PLUTUS_MODELS_H__\n
 
 #include <stdbool.h>
-#include <stdint.h>\n
+#include <stdint.h>
+#include <stddef.h>
+
+// #ifdef DO_PAD_CHECK\n
 ")?;
 
     macros::act_on_models! {($X:ident) => {
