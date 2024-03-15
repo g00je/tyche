@@ -101,6 +101,7 @@ struct Eatery {
     menu: Option<Gene>,
     review: Option<Gene>,
     detail: Option<Gene>,
+    extra: Option<Gene>,
     photos: [Option<Gene>; 7],
     star_sum: u32,
     theme: u32,
