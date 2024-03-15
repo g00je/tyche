@@ -96,11 +96,6 @@ struct Duration {
 struct Eatery {
     flag: u64,
     gene: Gene,
-
-    #[int(max = 999)]
-    cc: u16,
-    tables: i16,
-
     latitude: f64,
     longitude: f64,
     menu: Option<Gene>,
@@ -109,13 +104,15 @@ struct Eatery {
     photos: [Option<Gene>; 7],
     star_sum: u32,
     theme: u32,
-
+    #[int(max = 999)]
+    cc: u16,
+    tables: i16,
     category: u8,
     #[str]
     phone: [u8; 12],
     opening_hours: [[Duration; 4]; 7],
     #[str]
-    name: [u8; 59],
+    name: [u8; 55],
 }
 
 #[model]
