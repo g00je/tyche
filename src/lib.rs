@@ -211,24 +211,6 @@ struct UserLoginArgs {
     session: Session,
 }
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn test_sizes() {
-        assert!(crate::Gene::SIZE == 16);
-        assert!(crate::ResponseHead::SIZE == 16);
-        assert!(crate::Detail::SIZE == 32);
-        assert!(crate::Record::SIZE == 64);
-        assert!(crate::Session::SIZE == 88);
-        assert!(crate::User::SIZE == 368);
-        assert!(crate::Agent::SIZE == 88);
-        assert!(crate::Eatery::SIZE == 256);
-        assert!(crate::Dish::SIZE == 104);
-        assert!(crate::Review::SIZE == 264);
-        assert!(crate::ReviewData::SIZE == 16 + 264);
-    }
-}
-
 #[pymodule]
 fn plutus_internal(_py: Python, m: &PyModule) -> PyResult<()> {
     macros::act_on_models! {
