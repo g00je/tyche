@@ -10,7 +10,7 @@ macro_rules! act_on_models {
 
         crate::macros::act_on_list! {
             [ResponseHead, Gene, Detail, Record, Agent, Duration,
-             Eatery, Dish, Review, ReviewData, BlockHeader, ReviewBlock,
+             Eatery, Dish, Review, BlockHeader, ReviewBlock,
              MenuBlock, SessionInfo, Session, User, UserLoginArgs],
             act
         }

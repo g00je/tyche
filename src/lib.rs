@@ -100,8 +100,6 @@ struct Eatery {
     #[int(max = 999)]
     cc: u16,
     tables: i16,
-    menu_count: u16,
-    review_count: u16,
 
     latitude: f64,
     longitude: f64,
@@ -123,6 +121,7 @@ struct Eatery {
 #[model]
 struct Dish {
     flag: u64,
+    gene: Gene,
     ty: u8,
     #[str]
     name: [u8; 53],
@@ -134,6 +133,7 @@ struct Dish {
 #[model]
 struct Review {
     flag: u64,
+    gene: Gene, // block gene of self
     target: Gene,       // eatery OR user
     target_block: Gene, // eatery review OR user review. its not there own block
     detail: Gene,
@@ -142,13 +142,6 @@ struct Review {
     star: u8,
     #[str]
     summary: [u8; 223],
-}
-
-#[model]
-struct ReviewData {
-    gene: Gene,
-    idx: u64,
-    review: Review,
 }
 
 #[model]

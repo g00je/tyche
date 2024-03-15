@@ -31,7 +31,7 @@ fn write_stuff() -> std::io::Result<()> {
 #include <stdint.h>
 #include <stddef.h>
 
-// #ifdef DO_PAD_CHECK\n
+// #define DO_PAD_CHECK\n
 ")?;
 
     macros::act_on_models! {($X:ident) => {
