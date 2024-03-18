@@ -12,9 +12,8 @@ def randstr():
     ))
 
 
-data = b'A' * plutus.User.SIZE
-
-genes = plutus.Gene.batch(b'g' * plutus.Gene.SIZE * 10)
-print(genes[0].hex(), len(genes))
+user = plutus.User(b'\x00' * plutus.User.SIZE)
+assert len(user.dict()['name']) == 0
+assert len(user.name) == 0
 
 # print(json.dumps(user.dict(), indent=4))

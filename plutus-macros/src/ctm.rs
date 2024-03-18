@@ -15,7 +15,9 @@ pub fn ctm(model: &Model) -> TokenStream {
             MemberType::String { .. } => {
                 let gen = |idx: TokenStream| {
                     quote! {
-                        ::std::string::String::from_utf8(value.#ident #idx.to_vec())
+                        ::std::string::String::from_utf8(value.#ident #idx.iter().scan(0, |_, c| {
+                            if *c == 0 {None} else {Some(*c)}
+                        }).collect::<Vec<u8>>())
                         .unwrap_or_else(|e| {
                             ::std::string::String::from_utf8(
                                 value.#ident #idx [..e.utf8_error().valid_up_to()].into()

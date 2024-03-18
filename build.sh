@@ -18,7 +18,9 @@ fi
 
 cd "$(dirname "$0")"
 maturin build -o dist
+if [ $? != 0 ]; then exit 1; fi
 pip install ./dist/plutus_internal-*.whl --force-reinstall
+if [ $? != 0 ]; then exit 1; fi
 
 cargo run
 if [ $? != 0 ]; then
