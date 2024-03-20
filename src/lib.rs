@@ -55,9 +55,10 @@ struct Gene {
 struct Detail {
     flag: u64,
     gene: Gene,
-    size: u32,
-    length: u32,
+    size: u64,
     position: u64,
+    // end of head
+    length: u64,
 }
 
 #[model]
