@@ -10,6 +10,7 @@
 base_dir=~/projects/g00je
 core_dir=$base_dir/core
 tyche_dir=$base_dir/tyche
+plutus_dir=$base_dir/plutus
 
 # active the python venv if is not active already.
 if [[ -z $VIRTUAL_ENV ]]; then
@@ -47,6 +48,10 @@ fi
 mv models.h ~/projects/g00je/plutus/include/
 
 source $core_dir/.env/bin/activate
+pip install ../dist/plutus_internal-*.whl --force-reinstall
+pip install ./dist/plutus-*.whl --force-reinstall
+
+source $plutus_dir/.env/bin/activate
 pip install ../dist/plutus_internal-*.whl --force-reinstall
 pip install ./dist/plutus-*.whl --force-reinstall
 
