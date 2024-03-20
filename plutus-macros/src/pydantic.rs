@@ -53,9 +53,10 @@ pub fn pydantic(model: &Model) -> TokenStream {
                     format!("pydantic.conint(gt={}, lt={})", x.0, x.1)
                 })
             }
-            MemberType::String { len, .. } => Some(format!(
-                "pydantic.constr(max_length={})", len
-            )),
+            MemberType::BigInt { .. } => Some("str".to_string()),
+            MemberType::String { len, .. } => {
+                Some(format!("pydantic.constr(max_length={})", len))
+            }
             MemberType::Bytes { len } => Some(format!(
                 "pydantic.constr(min_length={}, max_length={})",
                 len * 2,

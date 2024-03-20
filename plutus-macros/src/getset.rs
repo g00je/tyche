@@ -18,6 +18,38 @@ pub fn getset(model: &Model) -> TokenStream {
         };
 
         Some(match &m.ty {
+            MemberType::BigInt { len } => {
+                let get_ident = format_ident!("get_{}", ident);
+                let set_ident = format_ident!("set_{}", ident);
+
+                let len32 = *len as u32;
+
+                quote! {
+                    #[getter]
+                    fn #get_ident (&self) -> ::num_bigint::BigUint {
+                        ::num_bigint::BigUint::from_bytes_le(&self.#ident)
+                    }
+
+                    #[setter]
+                    fn #set_ident (&mut self, value: ::num_bigint::BigUint) -> ::pyo3::PyResult<()> {
+                        let max = (::num_bigint::BigUint::from(1u32) << (#len32 * 8u32)) - 1u32;
+
+                        if value > max {
+                            return Err(PyValueError::new_err(format!(
+                                "value is too large. max value is {max}"
+                            )));
+                        }
+
+                        let mut value = value.to_bytes_le();
+                        value.resize(#len, 0);
+
+                        self.#ident = value.try_into().map_err(|_|
+                            PyValueError::new_err("err while converting the value to u8 array")
+                        )?;
+                        Ok(())
+                    }
+                }
+            },
             MemberType::Number { min, max, ty, .. } => {
                 let mut s = TokenStream::new();
 

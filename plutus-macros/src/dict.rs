@@ -41,6 +41,15 @@ pub fn dict_method(model: &Model) -> TokenStream {
 
                 array_index(&m.arr, &gen)
             }
+            MemberType::BigInt { .. } => {
+                let gen = |idx: TokenStream| {
+                    quote! {
+                        ::num_bigint::BigUint::from_bytes_le(&self.#ident #idx).to_string()
+                    }
+                };
+
+                array_index(&m.arr, &gen)
+            }
             MemberType::Bytes { .. } => {
                 let gen = |idx: TokenStream| {
                     quote! {

@@ -23,6 +23,9 @@ pub fn c_model(model: &Model) -> TokenStream {
             MemberType::Number { ty, .. } => quote_into! {s +=
                 #ident: #(array(quote!(#ty))),
             },
+            MemberType::BigInt { len } => quote_into! {s +=
+                #ident: #(array(quote!([u8; #len]))),
+            },
             MemberType::Bytes { len } => quote_into! {s +=
                 #ident: #(array(quote!([u8; #len]))),
             },
@@ -133,6 +136,9 @@ fn default(model: &Model) -> TokenStream {
             //     ],);
             //     s
             // }
+            MemberType::BigInt { len } => quote_into! {s += 
+                #ident: #(array(quote!([0; #len]))),
+            },
             MemberType::Bytes { len } => quote_into! {s += 
                 #ident: #(array(quote!([0; #len]))),
             },

@@ -14,28 +14,24 @@ pub fn cs(model: &Model) -> String {
                     }
                     .to_string()
                 } else {
-                    let x = ty.to_string();
-                    let mut x = x.chars();
-                    let sign = match x.next().unwrap() {
-                        'u' => "u",
-                        _ => "",
-                    };
-                    let size = x.collect::<String>();
-                    format!("{}int{}_t", sign, size)
+                    ty.to_string()
                 },
                 String::new(),
             )),
             MemberType::String { len, .. } => {
                 Some(("char".to_string(), format!("[{len}]")))
             }
+            MemberType::BigInt { len } => {
+                Some(("u8".to_string(), format!("[{len}]")))
+            }
             MemberType::Bytes { len } => {
-                Some(("uint8_t".to_string(), format!("[{len}]")))
+                Some(("u8".to_string(), format!("[{len}]")))
             }
             MemberType::Model { ty, .. } => {
                 Some((ty.to_string(), String::new()))
             }
             MemberType::Ipv4 => {
-                Some(("uint8_t".to_string(), "[4]".to_string()))
+                Some(("u8".to_string(), "[4]".to_string()))
             }
             MemberType::Flag { .. } => None,
         };

@@ -11,6 +11,7 @@ use syn::{
 pub enum MemberType {
     String { len: usize, validator: Option<Ident> },
     Number { ty: Ident, min: Option<usize>, max: Option<usize>, is_float: bool },
+    BigInt { len: usize },
     Bytes { len: usize },
     Model { ty: Ident, cty: Ident, optional: bool },
     Flag { fl: Ident },
@@ -115,6 +116,7 @@ fn parse_member(f: &Field) -> Member {
 enum Attr {
     Str { validator: Option<Ident> },
     Int { min: Option<usize>, max: Option<usize> },
+    BigInt,
     Flg,
     Ip4,
     Non,
@@ -131,6 +133,7 @@ fn parse_attrs(attrs: &Vec<Attribute>) -> Attr {
         Meta::Path(m) => match m.segments[0].ident.to_string().as_str() {
             "str" => Attr::Str { validator: None },
             "int" => Attr::Int { min: None, max: None },
+            "bigint" => Attr::BigInt,
             "flag" => Attr::Flg,
             "ipv4" => Attr::Ip4,
             _ => Attr::Non,
@@ -239,27 +242,36 @@ fn parse_type(ty: &Type, attr: &Attr) -> (MemberType, Option<Vec<usize>>) {
             }
             let first_char = ident.to_string().chars().next().unwrap();
             if first_char.is_uppercase() {
-                (MemberType::Model {
-                    ty: ident.clone(),
-                    cty: format_ident!("C{}", ident),
-                    optional: false,
-                }, None)
+                (
+                    MemberType::Model {
+                        ty: ident.clone(),
+                        cty: format_ident!("C{}", ident),
+                        optional: false,
+                    },
+                    None,
+                )
             } else {
                 let is_float = first_char == 'f';
                 if let Attr::Int { min, max } = attr {
-                    (MemberType::Number {
-                        ty: ident.clone(),
-                        min: *min,
-                        max: *max,
-                        is_float,
-                    }, None)
+                    (
+                        MemberType::Number {
+                            ty: ident.clone(),
+                            min: *min,
+                            max: *max,
+                            is_float,
+                        },
+                        None,
+                    )
                 } else {
-                    (MemberType::Number {
-                        ty: ident.clone(),
-                        min: None,
-                        max: None,
-                        is_float,
-                    }, None)
+                    (
+                        MemberType::Number {
+                            ty: ident.clone(),
+                            min: None,
+                            max: None,
+                            is_float,
+                        },
+                        None,
+                    )
                 }
             }
         }
@@ -278,10 +290,14 @@ fn parse_type(ty: &Type, attr: &Attr) -> (MemberType, Option<Vec<usize>>) {
             if let MemberType::Number { ty, .. } = &ty {
                 if ty.to_string() == "u8" {
                     return match attr {
-                        Attr::Str { validator } => (MemberType::String {
-                            len,
-                            validator: validator.clone(),
-                        }, None),
+                        Attr::BigInt => (MemberType::BigInt { len }, None),
+                        Attr::Str { validator } => (
+                            MemberType::String {
+                                len,
+                                validator: validator.clone(),
+                            },
+                            None,
+                        ),
                         Attr::Ip4 => {
                             if len != 4 {
                                 panic!("ipv4 length must be 4")

@@ -17,6 +17,7 @@ pub fn mtc(model: &Model) -> TokenStream {
 
         let mut s = TokenStream::new();
         match &m.ty {
+            MemberType::BigInt { .. } => quote_into!{s += #ident: value.#ident,},
             MemberType::Bytes { .. } => quote_into!{s += #ident: value.#ident,},
             MemberType::Number { .. } => quote_into!{s+= #ident: value.#ident,},
             MemberType::Ipv4 => quote_into!{s += #ident: value.#ident, },

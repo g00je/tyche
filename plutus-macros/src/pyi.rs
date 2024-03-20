@@ -20,6 +20,7 @@ pub fn pyi(model: &Model) -> String {
             }
             MemberType::String { .. } => "str".to_string(),
             MemberType::Bytes { .. } => "bytes".to_string(),
+            MemberType::BigInt { .. } => "int".to_string(),
             MemberType::Model { ty, optional, .. } => {
                 format!("{ty}{}", if *optional { " | None" } else {""})
             },

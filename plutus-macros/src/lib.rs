@@ -1,4 +1,4 @@
-use std::io::Write;
+// use std::io::Write;
 
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
@@ -6,7 +6,6 @@ use quote::quote;
 use quote_into::quote_into;
 use syn::{parse_macro_input, ItemStruct};
 
-mod utils;
 mod c_model;
 mod cs;
 mod ctm;
@@ -14,9 +13,10 @@ mod default;
 mod dict;
 mod getset;
 mod mtc;
-mod pyi;
-mod pydantic;
 mod parser;
+mod pydantic;
+mod pyi;
+mod utils;
 use parser::MemberType;
 
 #[proc_macro_attribute]
@@ -55,6 +55,9 @@ pub fn model(args: TokenStream, code: TokenStream) -> TokenStream {
             MemberType::Number { ty, .. } => quote_into! {s +=
                 #[pyo3(get)]
                 #ident: #(array(quote!(#ty))),
+            },
+            MemberType::BigInt { len } => quote_into! {s +=
+                #ident: #(array(quote!([u8; #len]))),
             },
             MemberType::Bytes { len } => quote_into! {s +=
                 #ident: #(array(quote!([u8; #len]))),

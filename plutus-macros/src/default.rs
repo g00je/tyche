@@ -26,6 +26,7 @@ pub fn default(model: &Model) -> TokenStream {
         let mut s = TokenStream::new();
 
         let v = match &m.ty {
+            MemberType::BigInt { len } => Some(quote!([0; #len])),
             MemberType::Bytes { len } => Some(quote!([0; #len])),
             MemberType::Ipv4 => Some(quote!([0, 0, 0, 0])),
             MemberType::String { .. } => Some(quote!(String::default())),

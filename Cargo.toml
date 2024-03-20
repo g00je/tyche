@@ -10,7 +10,8 @@ crate-type = ["cdylib", "lib"]
 
 [dependencies]
 plutus-macros = { path = "plutus-macros" }
-pyo3 = { version = "0.20.3", features = [] }
+pyo3 = { version = "0.20.3", features = ["num-bigint"] }
+num-bigint = "0.4"
 
 [features]
 extension-module = ["pyo3/extension-module"]

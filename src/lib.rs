@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use plutus_macros::model;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -81,6 +83,7 @@ struct Agent {
     flag: u64,
     gene: Gene,
     user: Gene,
+    #[bigint]
     admin_perms: [u8; 64],
     reviews: [u64; 3],
 }
