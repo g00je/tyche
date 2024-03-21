@@ -53,6 +53,12 @@ struct Gene {
     _reserved: u8
 }
 
+impl CGene {
+    fn is_none(&self) -> bool {
+        self.id == 0
+    }
+}
+
 #[model]
 struct Detail {
     flag: u64,

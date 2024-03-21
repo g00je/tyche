@@ -56,13 +56,6 @@ pub fn c_model(model: &Model) -> TokenStream {
 
         impl #c_ident {
             const SIZE: usize = ::core::mem::size_of::<#c_ident>();
-
-            #{if model.hexable {
-            quote_into!{s +=
-            fn is_none(&self) -> bool {
-                let data: Vec<u8> = self.into();
-                data.iter().all(|x| *x == 0)
-            }}}}
         }
 
         #default_tokens
