@@ -50,13 +50,23 @@ struct Gene {
     version: u8,
     idx: u8,
     iter: u8,
-    _reserved: u8
+    _reserved: u8,
 }
 
 impl CGene {
     fn is_none(&self) -> bool {
         self.id == 0
     }
+}
+
+#[model]
+struct PondIndex {
+    flag: u64,
+    gene: Gene,
+    block_count: u64,
+    item_count: u64,
+    first: Gene,
+    last: Gene,
 }
 
 #[model]
@@ -125,7 +135,7 @@ struct Eatery {
     #[str]
     name: [u8; 55],
     #[flag]
-    closed: FLAG_EATERY_CLOSED
+    closed: FLAG_EATERY_CLOSED,
 }
 
 #[model]
@@ -145,7 +155,7 @@ struct Dish {
 #[model]
 struct Review {
     flag: u64,
-    gene: Gene, // block gene of self
+    gene: Gene,         // block gene of self
     target: Gene,       // eatery OR user
     target_block: Gene, // eatery review OR user review. its not there own block
     detail: Gene,
