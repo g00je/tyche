@@ -118,6 +118,8 @@ struct Eatery {
     opening_hours: [[Duration; 4]; 7],
     #[str]
     name: [u8; 55],
+    #[flag]
+    closed: FLAG_EATERY_CLOSED
 }
 
 #[model]
@@ -130,6 +132,8 @@ struct Dish {
     currency: u16,
     photos: [Gene; 4],
     price: i64,
+    #[flag]
+    available: FLAG_DISH_AVAILABLE,
 }
 
 #[model]
