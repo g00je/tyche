@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use std::u16;
 
 use plutus_macros::model;
 use pyo3::exceptions::PyValueError;
@@ -63,6 +64,7 @@ impl CGene {
 struct PondIndex {
     flag: u64,
     gene: Gene,
+    owner: Gene,
     block_count: u64,
     item_count: u64,
     first: Gene,
@@ -83,7 +85,6 @@ struct Detail {
 struct Record {
     flag: u64,
     gene: Gene,
-    detail: Gene,
     checksum: [u8; 16],
     server: u32,
     width: u32,
@@ -144,9 +145,8 @@ struct Dish {
     gene: Gene,
     ty: u8,
     #[str]
-    name: [u8; 53],
-    currency: u16,
-    photos: [Gene; 4],
+    name: [u8; 55],
+    photos: [Option<Gene>; 4],
     price: i64,
     #[flag]
     available: FLAG_DISH_AVAILABLE,
@@ -158,7 +158,7 @@ struct Review {
     gene: Gene,         // block gene of self
     target: Gene,       // eatery OR user
     target_block: Gene, // eatery review OR user review. its not there own block
-    detail: Gene,
+    detail: Option<Gene>,
     timestamp: u64,
     #[int(max = 5)]
     star: u8,
@@ -170,9 +170,9 @@ struct Review {
 struct BlockHeader {
     flag: u64,
     gene: Gene,
-    parent: Gene,
-    past: Gene,
-    next: Gene,
+    index: Gene,
+    past: Option<Gene>,
+    next: Option<Gene>,
     live: u8,
     _reserved: [u8; 7],
 }
@@ -233,6 +233,7 @@ struct UserLoginArgs {
     cc: u16,
     #[str(validator = phone_validator)]
     phone: [u8; 12],
+    _pad: u16,
     session: Session,
 }
 
