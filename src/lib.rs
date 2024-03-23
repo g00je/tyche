@@ -145,7 +145,9 @@ struct Dish {
     gene: Gene,
     ty: u8,
     #[str]
-    name: [u8; 55],
+    name: [u8; 128],
+    #[str]
+    note: [u8; 127],
     photos: [Option<Gene>; 4],
     price: i64,
     #[flag]
