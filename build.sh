@@ -45,7 +45,7 @@ if [ $? != 0 ]; then
     exit 1
 fi
 
-mv models.h ~/projects/g00je/plutus/include/
+cp models.h ~/projects/g00je/plutus/include/
 
 source $core_dir/.env/bin/activate
 pip install ../dist/plutus_internal-*.whl --force-reinstall
