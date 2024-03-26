@@ -162,8 +162,9 @@ struct Review {
     timestamp: u64,
     #[int(max = 5)]
     star: u8,
+    state: u8,
     #[str]
-    summary: [u8; 223],
+    summary: [u8; 222],
 }
 
 #[model]
