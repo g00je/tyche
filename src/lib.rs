@@ -102,7 +102,6 @@ struct Agent {
     user: Gene,
     #[bigint]
     admin_perms: [u8; 64],
-    reviews: [u64; 3],
 }
 
 #[model]
@@ -226,6 +225,7 @@ struct User {
     agent: Option<Gene>,
     review: Option<Gene>,
     photo: Option<Gene>,
+    reviews: [u64; 3],
     #[str(validator = phone_validator)]
     phone: [u8; 12],
     #[int(max = 999)]
