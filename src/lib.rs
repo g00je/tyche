@@ -157,9 +157,9 @@ struct Dish {
 #[model]
 struct Review {
     flag: u64,
-    gene: Gene,         // block gene of self
-    target: Gene,       // eatery OR user
-    target_block: Gene, // eatery review OR user review. its not there own block
+    gene: Gene,   // block gene of self
+    target: Gene, // eatery OR user
+    cousin: Gene, // eatery review OR user review. its not there own block
     detail: Option<Gene>,
     timestamp: u64,
     #[int(max = 5)]
