@@ -1,5 +1,4 @@
 use std::fmt::Debug;
-use std::u16;
 
 use plutus_macros::model;
 use pyo3::exceptions::PyValueError;
@@ -113,12 +112,6 @@ struct Duration {
 }
 
 #[model]
-struct Star {
-    mas: u64,
-    sum: u64
-}
-
-#[model]
 struct Eatery {
     flag: u64,
     gene: Gene,
@@ -129,7 +122,7 @@ struct Eatery {
     detail: Option<Gene>,
     extra: Option<Gene>,
     photos: [Option<Gene>; 7],
-    stars: [Star; 5],
+    stars: [u64; 5],
     theme: u32,
     #[int(max = 999)]
     cc: u16,
