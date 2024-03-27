@@ -17,6 +17,11 @@ pub fn dict_method(model: &Model) -> TokenStream {
                         .collect::<::std::string::String>()
                 )
             }
+
+            fn __bool__(&self) -> ::pyo3::PyResult<bool> {
+                let value = <#c_ident>::try_from(self.clone())?;
+                Ok(!value.is_none())
+            }
         };
     }
 
