@@ -107,7 +107,7 @@ struct Agent {
 struct Duration {
     #[int(max = 97)]
     open: u8,
-    #[int(max = 97)]
+    #[int(max = 98)]
     close: u8,
 }
 
@@ -160,7 +160,7 @@ struct Review {
     cousin: Gene, // eatery review OR user review. its not there own block
     detail: Option<Gene>,
     timestamp: u64,
-    #[int(max = 5)]
+    #[int(max = 6)]
     star: u8,
     state: u8,
     #[str]
