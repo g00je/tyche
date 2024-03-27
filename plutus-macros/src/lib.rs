@@ -240,6 +240,10 @@ pub fn model(args: TokenStream, code: TokenStream) -> TokenStream {
                     }
                 });
 
+                if result.len() == 0 {
+                    return Ok(Vec::new());
+                }
+
                 if let Ok(data) = result {
                     let data = data.as_slice();
 
