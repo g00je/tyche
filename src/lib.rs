@@ -8,6 +8,7 @@ static PAGE_SIZE: u64 = 32;
 static REQUEST_SIZE: u64 = 60000; // 60K
 static DETAIL_ADDED_SIZE: u64 = 256;
 static DETAIL_MAX_LENGTH: u64 = 20000; // 20K
+static SNAKE_MAX_LENGTH: u64 = 32768; // 4096 * 8
 
 static FLAG_ALIVE: u64 = 1 << 0;
 static FLAG_EDITED: u64 = 1 << 1;
@@ -247,6 +248,7 @@ fn plutus_internal(_py: Python, m: &PyModule) -> PyResult<()> {
 
     m.add("PAGE_SIZE", PAGE_SIZE)?;
     m.add("REQUEST_SIZE", REQUEST_SIZE)?;
+    m.add("SNAKE_MAX_LENGTH", SNAKE_MAX_LENGTH)?;
     m.add("DETAIL_ADDED_SIZE", DETAIL_ADDED_SIZE)?;
     m.add("DETAIL_MAX_LENGTH", DETAIL_MAX_LENGTH)?;
     m.add("FLAG_ALIVE", FLAG_ALIVE)?;
