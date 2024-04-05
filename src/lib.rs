@@ -125,6 +125,8 @@ struct Eatery {
     photos: [Option<Gene>; 7],
     stars: [u64; 5],
     theme: u32,
+    #[int(max = 22)]
+    zoom: u8,
     #[int(max = 999)]
     cc: u16,
     tables: i16,
@@ -133,7 +135,7 @@ struct Eatery {
     phone: [u8; 12],
     opening_hours: [[Duration; 4]; 7],
     #[str]
-    name: [u8; 59],
+    name: [u8; 58],
     #[flag]
     closed: FLAG_EATERY_CLOSED,
 }
