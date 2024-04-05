@@ -49,7 +49,7 @@ pub fn pydantic(model: &Model) -> TokenStream {
                         }
                     )
                 } else {
-                    let x = min_max(*min, *max, ty);
+                    let x = min_max(min, max, ty);
                     format!("pydantic.conint(gt={}, lt={})", x.0, x.1)
                 })
             }
@@ -90,7 +90,7 @@ pub fn pydantic(model: &Model) -> TokenStream {
 }
 
 fn min_max(
-    min: Option<usize>, max: Option<usize>, ty: &Ident,
+    min: &Option<TokenStream>, max: &Option<TokenStream>, ty: &Ident,
 ) -> (String, String) {
     let tys = ty.to_string();
     let mut x = tys.chars();

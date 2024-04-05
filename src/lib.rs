@@ -129,7 +129,7 @@ struct Eatery {
     cc: u16,
     tables: i16,
     category: u8,
-    #[int(max = 22)]
+    #[int(max = 24)]
     zoom: u8,
     #[str]
     phone: [u8; 12],

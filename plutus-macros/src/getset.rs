@@ -59,10 +59,8 @@ pub fn getset(model: &Model) -> TokenStream {
                         #{if let Some(min) = min {
                             let err = format!("minimum value is {}", min);
                             quote_into!(s += 
-                                if value <= #min as #ty {
-                        return Err(::pyo3::exceptions::PyValueError::new_err(
-                            #err
-                        ));
+                                if value < #min {
+                                    return Err(::pyo3::exceptions::PyValueError::new_err(#err));
                                 }
                             )
                         }}
@@ -70,10 +68,8 @@ pub fn getset(model: &Model) -> TokenStream {
                         #{if let Some(max) = max {
                             let err = format!("maximum value is {}", max);
                             quote_into!(s += 
-                                if value >= #max as #ty {
-                        return Err(::pyo3::exceptions::PyValueError::new_err(
-                            #err
-                        ));
+                                if value > #max {
+                                    return Err(::pyo3::exceptions::PyValueError::new_err(#err));
                                 }
                             )
                         }}

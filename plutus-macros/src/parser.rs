@@ -1,20 +1,39 @@
+use core::panic;
+
 use proc_macro2::{Ident, TokenStream, TokenTree};
-use quote::format_ident;
+use quote::{format_ident, TokenStreamExt};
 
 use syn::{
     punctuated::Punctuated, token::Brace, Attribute, Expr, Field, Fields,
-    FieldsNamed, GenericArgument, ItemStruct, Lit, LitInt, Meta, PathArguments,
-    Type,
+    FieldsNamed, GenericArgument, ItemStruct, Lit, Meta, PathArguments, Type,
 };
 
 #[derive(Debug)]
 pub enum MemberType {
-    String { len: usize, validator: Option<Ident> },
-    Number { ty: Ident, min: Option<usize>, max: Option<usize>, is_float: bool },
-    BigInt { len: usize },
-    Bytes { len: usize },
-    Model { ty: Ident, cty: Ident, optional: bool },
-    Flag { fl: Ident },
+    String {
+        len: usize,
+        validator: Option<TokenStream>,
+    },
+    Number {
+        ty: Ident,
+        min: Option<TokenStream>,
+        max: Option<TokenStream>,
+        is_float: bool,
+    },
+    BigInt {
+        len: usize,
+    },
+    Bytes {
+        len: usize,
+    },
+    Model {
+        ty: Ident,
+        cty: Ident,
+        optional: bool,
+    },
+    Flag {
+        fl: Ident,
+    },
     Ipv4,
 }
 
@@ -114,8 +133,8 @@ fn parse_member(f: &Field) -> Member {
 
 #[derive(Debug)]
 enum Attr {
-    Str { validator: Option<Ident> },
-    Int { min: Option<usize>, max: Option<usize> },
+    Str { validator: Option<TokenStream> },
+    Int { min: Option<TokenStream>, max: Option<TokenStream> },
     BigInt,
     Flg,
     Ip4,
@@ -139,12 +158,13 @@ fn parse_attrs(attrs: &Vec<Attribute>) -> Attr {
             _ => Attr::Non,
         },
         Meta::List(m) => {
-            let mut values: Vec<(Ident, TokenTree)> = Vec::new();
+            let mut values: Vec<(Ident, TokenStream)> = Vec::new();
             let mut iter = m.tokens.clone().into_iter();
+            // println!("{m:#?}");
             while let Some(t) = iter.next() {
                 let ident = match t {
                     TokenTree::Ident(ident) => ident,
-                    _ => panic!("invalid attrs"),
+                    a => panic!("key attrs mut be ident: {a}"),
                 };
 
                 match iter.next().expect("invalid attrs") {
@@ -156,17 +176,39 @@ fn parse_attrs(attrs: &Vec<Attribute>) -> Attr {
                     _ => panic!("invalid attrs"),
                 }
 
-                values.push((ident, iter.next().expect("invalid attrs")));
+                let mut s = TokenStream::new();
+                while let Some(t) = iter.next() {
+                    match t {
+                        TokenTree::Punct(p) => {
+                            if p.as_char() == ',' {
+                                break;
+                            }
+                            s.append(p)
+                        }
+                        t => s.append(t),
+                    }
+                }
+                // println!("{ident}: {s}");
+
+                // let mut negetive = false;
+                //
+                // match iter.next().expect("attr value not found") {
+                //     TokenTree::Punct(p) => {
+                //         if p.as_char() != '-' {
+                //             negetive = true
+                //             panic!("invalid punct before value: {p}")
+                //         }
+                //     }
+                // }
+
+                values.push((ident, s));
             }
 
             match m.path.segments[0].ident.to_string().as_str() {
                 "str" => Attr::Str {
-                    validator: values.iter().find_map(|v| {
-                        if v.0.to_string() == "validator" {
-                            match &v.1 {
-                                TokenTree::Ident(i) => Some(i.clone()),
-                                _ => panic!("invalid value for validator"),
-                            }
+                    validator: values.iter().find_map(|(i, t)| {
+                        if i.to_string() == "validator" {
+                            Some(t.clone())
                         } else {
                             None
                         }
@@ -179,22 +221,8 @@ fn parse_attrs(attrs: &Vec<Attribute>) -> Attr {
                     for (i, t) in values {
                         let i = i.to_string();
                         match i.as_str() {
-                            "min" | "max" => {
-                                let amount = Some(match &t {
-                                    TokenTree::Literal(lit) => {
-                                        LitInt::from(lit.clone())
-                                            .base10_parse::<usize>()
-                                            .unwrap()
-                                    }
-                                    _ => panic!("invalid {i}"),
-                                });
-
-                                if i == "min" {
-                                    min = amount;
-                                } else {
-                                    max = amount;
-                                }
-                            }
+                            "min" => min = Some(t),
+                            "max" => max = Some(t),
                             _ => (),
                         }
                     }
@@ -256,8 +284,8 @@ fn parse_type(ty: &Type, attr: &Attr) -> (MemberType, Option<Vec<usize>>) {
                     (
                         MemberType::Number {
                             ty: ident.clone(),
-                            min: *min,
-                            max: *max,
+                            min: min.clone(),
+                            max: max.clone(),
                             is_float,
                         },
                         None,
