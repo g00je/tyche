@@ -125,12 +125,12 @@ struct Eatery {
     photos: [Option<Gene>; 7],
     stars: [u64; 5],
     theme: u32,
-    #[int(max = 22)]
-    zoom: u8,
     #[int(max = 999)]
     cc: u16,
     tables: i16,
     category: u8,
+    #[int(max = 22)]
+    zoom: u8,
     #[str]
     phone: [u8; 12],
     opening_hours: [[Duration; 4]; 7],
