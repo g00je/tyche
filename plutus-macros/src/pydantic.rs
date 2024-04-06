@@ -103,7 +103,7 @@ fn min_max(
         match ty {
             'u' => "-1".to_string(),
             // 'i' => (-(1i128 << s) - 1).to_string(),
-            'i' => format!("-(1 << {s}) - 1"),
+            'i' => format!("-(1 << ({s} - 1)) - 1"),
             'f' => panic!("no min max for floats"),
             _ => panic!("invalid number type"),
         }

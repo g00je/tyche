@@ -127,6 +127,7 @@ struct Eatery {
     theme: u32,
     #[int(max = 999)]
     cc: u16,
+    #[int(min = -2)]
     tables: i16,
     category: u8,
     #[int(max = 24)]
