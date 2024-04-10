@@ -12,49 +12,65 @@ core_dir=$base_dir/core
 tyche_dir=$base_dir/tyche
 plutus_dir=$base_dir/plutus
 
-# active the python venv if is not active already.
-if [[ -z $VIRTUAL_ENV ]]; then
-    source $tyche_dir/.env/bin/activate
-fi
+function check {
+    if [ $1 != 0 ]; then
+        echo "Error (exit code: $1): $2 failed!"
+        exit 1;
+    else
+        echo "Ok: $2"
+    fi
+}
+
+source $tyche_dir/.env/bin/activate
 
 cd "$(dirname "$0")"
-maturin build -o dist
-if [ $? != 0 ]; then exit 1; fi
-pip install ./dist/plutus_internal-*.whl --force-reinstall
-if [ $? != 0 ]; then exit 1; fi
 
-cargo run
-if [ $? != 0 ]; then
-    echo error making the plutus dir
-    exit 1
-fi
+echo -e "maturin build -r -o dist"
+maturin build -q -r -o dist
+check $? "martin build"
+
+echo -e "pip install plutus_internal in tyche"
+pip install ./dist/plutus_internal-*.whl --force-reinstall -q
+check $? "pip install in tyche"
+
+echo "cargo run"
+cargo run -q
+check $? "cargo run"
 
 cd pkg
 # send stdout to null
+echo "python build sdist in pkg"
 python -m build --no-isolation --sdist --wheel --outdir dist/ .
-if [ $? != 0 ]; then
-    echo error while building
-    exit 1
-fi
+check $? "building the python package plutus"
 
-pip install ./dist/plutus-*.whl --force-reinstall
+echo "pip install plutus in tyche"
+pip install ./dist/plutus-*.whl --force-reinstall -q
+check $? "pip install plutus in tyche"
 
 python ../test.py
-if [ $? != 0 ]; then
-    echo error testing
-    exit 1
-fi
+check $? "tests"
 
 mkdir -p $plutus_dir/include/
-cp models.h $plutus_dir/include/
+cp -f models.h $plutus_dir/include/
 
+echo "pip install in $core_dir"
 source $core_dir/.env/bin/activate
-pip install ../dist/plutus_internal-*.whl --force-reinstall
-pip install ./dist/plutus-*.whl --force-reinstall
 
+pip install ../dist/plutus_internal-*.whl --force-reinstall -q
+check $? "pip install plutus_internal in core"
+
+pip install ./dist/plutus-*.whl --force-reinstall -q
+check $? "pip install plutus in core"
+
+
+echo "pip install in $plutus_dir"
 source $plutus_dir/.env/bin/activate
-pip install ../dist/plutus_internal-*.whl --force-reinstall
-pip install ./dist/plutus-*.whl --force-reinstall
+
+pip install ../dist/plutus_internal-*.whl --force-reinstall -q
+check $? "pip install plutus_internal in plutus"
+
+pip install ./dist/plutus-*.whl --force-reinstall -q
+check $? "pip install plutus in plutus"
 
 source $tyche_dir/.env/bin/activate
 
