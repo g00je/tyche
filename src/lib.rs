@@ -16,6 +16,7 @@ static FLAG_PRIVATE: u64 = 1 << 2;
 
 static FLAG_DISH_AVAILABLE: u64 = 1 << 16;
 static FLAG_EATERY_CLOSED: u64 = 1 << 16;
+static FLAG_USER_BANNED: u64 = 1 << 16;
 
 mod macros;
 
@@ -231,6 +232,8 @@ struct User {
     #[str]
     name: [u8; 50],
     sessions: [Session; 3],
+    #[flag]
+    banned: FLAG_USER_BANNED,
 }
 
 #[model]
