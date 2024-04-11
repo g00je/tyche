@@ -74,5 +74,5 @@ check $? "pip install plutus in plutus"
 
 source $tyche_dir/.env/bin/activate
 
-rm -rf dist ../dist build *.egg-info
+# rm -rf dist ../dist build *.egg-info
 
